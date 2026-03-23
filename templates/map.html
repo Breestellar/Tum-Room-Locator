@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Campus Map</h2>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='map.js') }}"></script>
+{% endblock %}

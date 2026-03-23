@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Admin Dashboard</h2>
+  <h3>Add Campus</h3>
+  <form action="/admin/add_campus" method="post">
+    <label for="campus_name">Name:</label>
+    <input type="text" id="campus_name" name="name" required>
+    <button type="submit">Add Campus</button>
+  </form>
+  
+  <h3>Add Building</h3>
+  <form action="/admin/add_building" method="post">
+    <label for="building_campus">Campus:</label>
+    <select id="building_campus" name="campus_id">
+      {% for c in campuses %}
+        <option value="{{c.id}}">{{c.name}}</option>
+      {% endfor %}
+    </select><br>
+    <label for="building_name">Name:</label>
+    <input type="text" id="building_name" name="name" required>
+    <label for="building_latitude">Latitude:</label>
+    <input type="text" id="building_latitude" name="latitude" required>
+    <label for="building_longitude">Longitude:</label>
+    <input type="text" id="building_longitude" name="longitude" required>
+    <button type="submit">Add Building</button>
+  </form>
+  
+  <h3>Add Room</h3>
+  <form action="/admin/add_room" method="post">
+    <label for="room_building">Building:</label>
+    <select id="room_building" name="building_id">
+      {% for b in buildings %}
+        <option value="{{b.id}}">{{b.name}}</option>
+      {% endfor %}
+    </select><br>
+    <label for="room_name">Name:</label>
+    <input type="text" id="room_name" name="name" required>
+    <label for="room_description">Description:</label>
+    <input type="text" id="room_description" name="description"><br>
+    <label for="room_floor">Floor:</label>
+    <input type="text" id="room_floor" name="floor"><br>
+    <button type="submit">Add Room</button>
+  </form>
+
+  <h3>Existing Data</h3>
+  <p>Campuses: {{ campuses|length }}</p>
+  <p>Buildings: {{ buildings|length }}</p>
+  <p>Rooms: {{ rooms|length }}</p>
+{% endblock %}
