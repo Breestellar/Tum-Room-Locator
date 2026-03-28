@@ -4,30 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TUM Room Locator</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    nav { background: #4A5568; color: white; padding: 10px; }
-    nav a { color: #EDF2F7; margin-inline-end: 15px; text-decoration: none; }
-    #map { block-size: 500px; margin-block-start: 20px; }
-    </style>
-</head>
-<body>
-  <nav>
-    <a href="/">Home</a>
-    {% if current_user and current_user.is_authenticated %}
-      <a href="/logout">Logout</a>
-      {% if current_user.role == 'admin' %}
-        <a href="/admin">Admin Dashboard</a>
-      {% else %}
-        <a href="/user/map">Map</a>
-      {% endif %}
-    {% else %}
-      <a href="/login">Login</a>
-    {% endif %}
-  </nav>
 
-  {% block content %}{% endblock %}
-  
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+
+<body class="bg-gray-100">
+
+<!-- NAVBAR -->
+<nav class="bg-gray-800 text-white px-6 py-3 flex justify-between">
+    <div class="font-semibold">TUM Locator</div>
+
+    <div class="space-x-4">
+        <a href="/" class="hover:underline">Home</a>
+        <a href="/map" class="hover:underline">Map</a>
+        <a href="/admin" class="hover:underline">Admin</a>
+        <a href="/login" class="hover:underline">Login</a>
+    </div>
+</nav>
+
+<!-- CONTENT -->
+<div class="p-6">
+    {% block content %}{% endblock %}
+</div>
+
 </body>
 </html>
