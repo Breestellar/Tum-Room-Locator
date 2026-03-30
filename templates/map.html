@@ -4,79 +4,34 @@
 
 <h2 class="text-xl font-semibold mb-4">Room Locator</h2>
 
-<!-- SEARCH BAR -->
-<input 
-    type="text" 
-    id="searchBox"
-    placeholder="Search for a room (e.g. A12)"
-    class="w-full p-2 border rounded mb-3"
-/>
 
-<!-- SEARCH RESULTS -->
-<div id="results" class="bg-white shadow rounded mb-4"></div>
+<div class="bg-white shadow-md p-4 rounded-lg mb-4 flex gap-2">
+    <label for="campusSelect" class="sr-only">Select Campus</label>
+    <select id="campusSelect" class="border p-2 rounded w-1/4">
+        <option value="">Select Campus</option>
+        <option value="1">Main Campus</option>
+        <option value="2">Mazrui Campus</option>
+    </select>
 
-<!-- MAP -->
-<div id="map" class="h-[500px] rounded"></div>
+    <div class="relative w-2/4">
+        <input type="text" id="searchInput" placeholder="Search building..." class="border p-2 rounded w-full">
+
+        <div id="suggestions"
+            class="absolute bg-white border rounded shadow w-full mt-1 hidden z-50">
+        </div>
+    </div>
+    <button id="searchBtn" onclick="searchBuilding()"
+        class="bg-green-600 text-white px-4 py-2 rounded">
+        Search
+    </button>
+
+    <button onclick="resetMap()"
+        class="bg-orange-500 text-white px-4 py-2 rounded">
+        Reset
+    </button>
+</div>
+<div id="map" class="w-full h-[500px] rounded-lg shadow"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<script>
-    var map = L.map('map').setView([-4.0435, 39.6682], 16);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    let markers = [];
-
-    // Load buildings
-    fetch('/api/buildings')
-        .then(res => res.json())
-        .then(data => {
-            data.forEach(b => {
-                let marker = L.marker([b.latitude, b.longitude])
-                    .addTo(map)
-                    .bindPopup(`<b>${b.name}</b>`);
-
-                markers.push(marker);
-            });
-        });
-
-    // SEARCH FUNCTION
-    document.getElementById("searchBox").addEventListener("input", function () {
-        let query = this.value;
-
-        if (query.length < 2) {
-            document.getElementById("results").innerHTML = "";
-            return;
-        }
-
-        fetch('/api/search?q=' + query)
-            .then(res => res.json())
-            .then(data => {
-
-                let html = "";
-
-                data.forEach(item => {
-                    html += `
-                        <div class="p-2 border-b cursor-pointer hover:bg-gray-100"
-                             onclick="goToLocation(${item.latitude}, ${item.longitude})">
-                            <b>${item.name}</b> - ${item.building_name} (Floor ${item.floor})
-                        </div>
-                    `;
-                });
-
-                document.getElementById("results").innerHTML = html;
-            });
-    });
-
-    function goToLocation(lat, lng) {
-        map.setView([lat, lng], 18);
-
-        L.marker([lat, lng]).addTo(map)
-            .bindPopup("Selected Location")
-            .openPopup();
-    }
-</script>
-
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
 {% endblock %}

@@ -1,9 +1,23 @@
-{% extends "base.html" %}
-{% block content %}
-  <h1>Welcome to TUM Room Locator</h1>
-  <p>This system helps students and visitors easily locate lecture rooms
-and facilities across the Technical University of Mombasa campuses.</p>
-  {% if not current_user.is_authenticated %}
-    <p><a href="/login"><button>Login</button></a></p>
-  {% endif %}
-{% endblock %}
+<div class="text-center mt-20">
+ 
+    <h1 class="text-3xl font-bold mb-4">
+        Welcome to TUM Room Locator
+    </h1>
+
+    <p class="mb-6 text-gray-600">
+        Find rooms, buildings and navigate across campus easily.
+    </p>
+
+    <div class="space-x-4">
+        <a href="/login"
+           class="bg-blue-600 text-white px-6 py-2 rounded">
+            Login
+        </a>
+
+        <a href="/register"
+           class="bg-gray-300 px-6 py-2 rounded">
+            Register
+        </a>
+    </div>
+
+</div>

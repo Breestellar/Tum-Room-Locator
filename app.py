@@ -1,12 +1,12 @@
-import os
+import mysql, os, re
 from db import get_db
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey' 
+app.secret_key = 'supersecretkey'
 
-# ------------------ Password hashing ------------------ # 
+# ------------------ Password hashing ------------------ #
 def hash_password(password):
     return generate_password_hash(password)
 
@@ -19,25 +19,19 @@ def home():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+        
         conn = get_db()
         cursor = conn.cursor()
 
-        username = request.form['username']
-        password = generate_password_hash(request.form['password'])
-        role = request.form['role']
+        cursor.execute(
+            "INSERT INTO users (username, password) VALUES (%s, %s)",
+            (username, password)
+        )
+        conn.commit()
 
-        try:
-            cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", 
-                           (username, password, role))
-            conn.commit()
-        except Exception as e:
-            print(e)
-            conn.rollback()
-        finally:
-            cursor.close()
-            conn.close()
-
-        return redirect(url_for('login'))
+        return redirect('/login')
 
     return render_template('register.html')
 
@@ -66,15 +60,27 @@ def login():
         user = cursor.fetchone()
 
         if user and check_password_hash(user['password'], password):
-            return redirect(url_for('map_view'))
-        return "Invalid username or password"
+            session['user_id'] = user['id']
+            session['role'] = user['role']
+
+            if user['role'] == 'admin':
+                return redirect('/admin')
+            else:
+                return redirect('/map')
 
     return render_template('login.html')
 
+# ------------------- Admin Check ------------------ #
+def require_admin():
+    if session.get('role') != 'admin':
+        return False
+    return True
 
 # ------------------- Admin Dashboard ------------------ #
 @app.route('/admin')
 def admin():
+    if not require_admin():
+        return "Unauthorized", 403
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
@@ -149,23 +155,33 @@ def map_view():
 # ---------------- SEARCH API ---------------- #
 @app.route('/api/search')
 def search():
-    query = request.args.get('q')
+    query = request.args.get('q', '').strip()
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT room.id, room.name, room.floor,
-               building.name AS building_name,
-               building.latitude, building.longitude
-        FROM room
-        JOIN building ON room.building_id = building.id
-        WHERE room.name LIKE %s
-    """, (f"%{query}%",))
+    sql = """
+        SELECT b.id, b.name, b.latitude, b.longitude, c.name AS campus_name
+        FROM building b
+        JOIN campus c ON b.campus_id = c.id
+        WHERE LOWER(b.name) LIKE %s
+    """
 
+    cursor.execute(sql, (f"%{query.lower()}%",))
     results = cursor.fetchall()
 
+    cursor.close()
+    conn.close()
+
     return jsonify(results)
+
+# ------------------ Normalize Query ------------------ #
+def normalize_query(q):
+    q = q.lower()
+    q = q.replace("rm", "room ")
+    q = re.sub(r'[^a-z0-9 ]', '', q)
+    q = re.sub(r'\s+', ' ', q).strip()
+    return q
 
 # ---------------- API: BUILDINGS ---------------- #
 @app.route('/api/buildings')
@@ -176,7 +192,16 @@ def api_buildings():
     cursor.execute("SELECT * FROM building")
     buildings = cursor.fetchall()
 
-    return jsonify(buildings)
+    data = []
+    for b in buildings:
+        data.append({
+            'id': b['id'],
+            'name': b['name'],
+            'lat': float(b['latitude']),
+            'lng': float(b['longitude'])
+        })
+
+    return jsonify(data)
 
 
 # ---------------- API: ROOMS ---------------- #
