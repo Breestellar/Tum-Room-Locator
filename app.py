@@ -1,4 +1,4 @@
-import mysql, os, re
+import re
 from db import get_db
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -6,36 +6,23 @@ from werkzeug.security import check_password_hash, generate_password_hash
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
-# ------------------ Password hashing ------------------ #
-def hash_password(password):
-    return generate_password_hash(password)
 
-# ------------------- Home ------------------ #
-@app.route('/')
-def home():
-    return render_template('home.html')
+#------------------------ HELPER FUNCTIONS ------------------------#
 
-# ------------------- Register ------------------ #
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = generate_password_hash(request.form['password'])
-        
-        conn = get_db()
-        cursor = conn.cursor()
+def require_admin():
+    return session.get('role') == 'admin'
 
-        cursor.execute(
-            "INSERT INTO users (username, password) VALUES (%s, %s)",
-            (username, password)
-        )
-        conn.commit()
 
-        return redirect('/login')
+def normalize_query(q):
+    q = q.lower()
+    q = q.replace("rm", "room ")
+    q = re.sub(r'[^a-z0-9 ]', '', q)
+    q = re.sub(r'\s+', ' ', q).strip()
+    return q
 
-    return render_template('register.html')
 
-# ------------------- Context Processor ------------------ #
+#------------------------ CONTEXT PROCESSORS ------------------------#
+
 @app.context_processor
 def inject_user():
     return dict(
@@ -46,10 +33,62 @@ def inject_user():
     )
 
 
-# ------------------- Login ------------------ #
+#--------------------- HOME PAGE ---------------------#
+
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+
+#------------------------- REGISTRATION ------------------------#
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+
+    if request.method == 'POST':
+
+        username = request.form['username']
+        password = request.form['password']
+        confirm = request.form['confirm_password']
+
+        if password != confirm:
+            return render_template('register.html', error="Passwords do not match")
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        # Check duplicate user
+        cursor.execute("SELECT id FROM users WHERE username=%s", (username,))
+        existing = cursor.fetchone()
+
+        if existing:
+            cursor.close()
+            conn.close()
+            return render_template('register.html', error="Username already exists")
+
+        hashed = generate_password_hash(password)
+
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (%s, %s, 'user')",
+            (username, hashed)
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return redirect('/login')
+
+    return render_template('register.html')
+
+
+#------------------------- LOGIN ------------------------#
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+
     if request.method == 'POST':
+
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
 
@@ -59,28 +98,37 @@ def login():
         cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
         user = cursor.fetchone()
 
+        cursor.close()
+        conn.close()
+
         if user and check_password_hash(user['password'], password):
+
             session['user_id'] = user['id']
             session['role'] = user['role']
 
-            if user['role'] == 'admin':
-                return redirect('/admin')
-            else:
-                return redirect('/map')
+            return redirect('/admin' if user['role'] == 'admin' else '/map')
+
+        return render_template('login.html', error="Invalid credentials")
 
     return render_template('login.html')
 
-# ------------------- Admin Check ------------------ #
-def require_admin():
-    if session.get('role') != 'admin':
-        return False
-    return True
 
-# ------------------- Admin Dashboard ------------------ #
+#------------------------- LOGOUT ------------------------#
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('home'))
+
+
+#-------------------------- ADMIN DASHBOARD --------------------------#
+
 @app.route('/admin')
 def admin():
+
     if not require_admin():
         return "Unauthorized", 403
+
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
@@ -93,23 +141,47 @@ def admin():
     cursor.execute("SELECT * FROM room")
     rooms = cursor.fetchall()
 
-    return render_template('admin_dashboard.html', campuses=campuses, buildings=buildings, rooms=rooms)
+    cursor.close()
+    conn.close()
 
-# --------------------  Add Campus ------------------ #
+    return render_template(
+        'admin_dashboard.html',
+        campuses=campuses,
+        buildings=buildings,
+        rooms=rooms
+    )
+
+
+#----------------------- ADD CAMPUS -----------------------#
+
 @app.route('/admin/add_campus', methods=['POST'])
 def add_campus():
+
+    if not require_admin():
+        return "Unauthorized", 403
+
+    name = request.form['name']
+
     conn = get_db()
     cursor = conn.cursor()
 
-    name = request.form['name']
     cursor.execute("INSERT INTO campus (name) VALUES (%s)", (name,))
+
     conn.commit()
+    cursor.close()
+    conn.close()
 
     return redirect('/admin')
 
-# ---------------- ADD BUILDING ---------------- #
+
+#----------------------- ADD BUILDING -----------------------#
+
 @app.route('/admin/add_building', methods=['POST'])
 def add_building():
+
+    if not require_admin():
+        return "Unauthorized", 403
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -124,12 +196,20 @@ def add_building():
     ))
 
     conn.commit()
+    cursor.close()
+    conn.close()
+
     return redirect('/admin')
 
 
-# ---------------- ADD ROOM ---------------- #
+#----------------------- ADD ROOM -----------------------#
+
 @app.route('/admin/add_room', methods=['POST'])
 def add_room():
+
+    if not require_admin():
+        return "Unauthorized", 403
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -144,30 +224,82 @@ def add_room():
     ))
 
     conn.commit()
+    cursor.close()
+    conn.close()
+
     return redirect('/admin')
 
 
-# ---------------- MAP PAGE ---------------- #
+#-------------------------- DELETE BUILDING --------------------------#
+
+@app.route('/admin/delete_building/<int:id>')
+def delete_building(id):
+
+    if not require_admin():
+        return "Unauthorized", 403
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM building WHERE id=%s", (id,))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect('/admin')
+
+
+#-------------------------- DELETE ROOM --------------------------#
+
+@app.route('/admin/delete_room/<int:id>')
+def delete_room(id):
+
+    if not require_admin():
+        return "Unauthorized", 403
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM room WHERE id=%s", (id,))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect('/admin')
+
+
+#-------------------------- MAP VIEW --------------------------#
+
 @app.route('/map')
 def map_view():
-    return render_template('map.html')
+    building_id = request.args.get('building_id')
+    return render_template('map.html', building_id=building_id)
 
-# ---------------- SEARCH API ---------------- #
+
+#-------------------------- SEARCH API --------------------------#
+
 @app.route('/api/search')
 def search():
-    query = request.args.get('q', '').strip()
+
+    query = normalize_query(request.args.get('q', ''))
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
     sql = """
-        SELECT b.id, b.name, b.latitude, b.longitude, c.name AS campus_name
+        SELECT b.id, b.name,
+               b.latitude AS lat,
+               b.longitude AS lng,
+               c.name AS campus_name
         FROM building b
         JOIN campus c ON b.campus_id = c.id
         WHERE LOWER(b.name) LIKE %s
+        LIMIT 10
     """
 
-    cursor.execute(sql, (f"%{query.lower()}%",))
+    cursor.execute(sql, (f"%{query}%",))
     results = cursor.fetchall()
 
     cursor.close()
@@ -175,52 +307,48 @@ def search():
 
     return jsonify(results)
 
-# ------------------ Normalize Query ------------------ #
-def normalize_query(q):
-    q = q.lower()
-    q = q.replace("rm", "room ")
-    q = re.sub(r'[^a-z0-9 ]', '', q)
-    q = re.sub(r'\s+', ' ', q).strip()
-    return q
 
-# ---------------- API: BUILDINGS ---------------- #
+#-------------------------- BUILDINGS API --------------------------#
+
 @app.route('/api/buildings')
 def api_buildings():
+
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM building")
     buildings = cursor.fetchall()
 
-    data = []
-    for b in buildings:
-        data.append({
+    cursor.close()
+    conn.close()
+
+    return jsonify([
+        {
             'id': b['id'],
             'name': b['name'],
             'lat': float(b['latitude']),
             'lng': float(b['longitude'])
-        })
+        } for b in buildings
+    ])
 
-    return jsonify(data)
 
-
-# ---------------- API: ROOMS ---------------- #
+#-------------------------- ROOMS API --------------------------#
 @app.route('/api/rooms/<int:building_id>')
 def api_rooms(building_id):
+
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM room WHERE building_id=%s", (building_id,))
     rooms = cursor.fetchall()
 
+    cursor.close()
+    conn.close()
+
     return jsonify(rooms)
 
-# -------------------  Logout ------------------ #
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('home'))
 
-# ---------------- RUN ---------------- #
+#------------------- RUN APP -------------------#
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,49 +1,175 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2>Admin Dashboard</h2>
-  <h3>Add Campus</h3>
-  <form action="/admin/add_campus" method="post">
-    <label for="campus_name">Name:</label>
-    <input type="text" id="campus_name" name="name" required>
-    <button type="submit">Add Campus</button>
-  </form>
-  
-  <h3>Add Building</h3>
-  <form action="/admin/add_building" method="post">
-    <label for="building_campus">Campus:</label>
-    <select id="building_campus" name="campus_id">
-      {% for c in campuses %}
-        <option value="{{c.id}}">{{c.name}}</option>
-      {% endfor %}
-    </select><br>
-    <label for="building_name">Name:</label>
-    <input type="text" id="building_name" name="name" required>
-    <label for="building_latitude">Latitude:</label>
-    <input type="text" id="building_latitude" name="latitude" required>
-    <label for="building_longitude">Longitude:</label>
-    <input type="text" id="building_longitude" name="longitude" required>
-    <button type="submit">Add Building</button>
-  </form>
-  
-  <h3>Add Room</h3>
-  <form action="/admin/add_room" method="post">
-    <label for="room_building">Building:</label>
-    <select id="room_building" name="building_id">
-      {% for b in buildings %}
-        <option value="{{b.id}}">{{b.name}}</option>
-      {% endfor %}
-    </select><br>
-    <label for="room_name">Name:</label>
-    <input type="text" id="room_name" name="name" required>
-    <label for="room_description">Description:</label>
-    <input type="text" id="room_description" name="description"><br>
-    <label for="room_floor">Floor:</label>
-    <input type="text" id="room_floor" name="floor"><br>
-    <button type="submit">Add Room</button>
-  </form>
 
-  <h3>Existing Data</h3>
-  <p>Campuses: {{ campuses|length }}</p>
-  <p>Buildings: {{ buildings|length }}</p>
-  <p>Rooms: {{ rooms|length }}</p>
+<div class="max-w-6xl mx-auto p-6">
+
+    <h2 class="text-2xl font-bold mb-6 text-green-700">Admin Dashboard</h2>
+
+    <!-- GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- ADD CAMPUS -->
+        <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-3">Add Campus</h3>
+
+            <form action="/admin/add_campus" method="post" class="space-y-3">
+                <input type="text" name="name" placeholder="Campus name"
+                    class="w-full border p-2 rounded" required>
+
+                <button type="submit"
+                    class="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">
+                    Add Campus
+                </button>
+            </form>
+        </div>
+
+        <!-- ADD BUILDING -->
+        <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-3">Add Building</h3>
+
+            <form action="/admin/add_building" method="post" class="space-y-3">
+
+                <label for="campus_id" class="text-sm font-medium text-gray-700">Campus</label>
+                <select id="campus_id" name="campus_id" class="w-full border p-2 rounded">
+                    {% for c in campuses %}
+                        <option value="{{c.id}}">{{c.name}}</option>
+                    {% endfor %}
+                </select>
+
+                <input type="text" name="name" placeholder="Building name"
+                    class="w-full border p-2 rounded" required>
+
+                <!-- Coordinates -->
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="latInput" type="text" name="latitude" placeholder="Latitude"
+                        class="border p-2 rounded" required>
+
+                    <input id="lngInput" type="text" name="longitude" placeholder="Longitude"
+                        class="border p-2 rounded" required>
+                </div>
+
+                <!-- MAP -->
+                <div id="buildingMap" class="h-48 rounded"></div>
+                <p class="text-xs text-gray-500">Click map to auto-fill coordinates</p>
+
+                <button type="submit"
+                    class="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">
+                    Add Building
+                </button>
+            </form>
+        </div>
+
+        <!-- ADD ROOM -->
+        <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-3">Add Room</h3>
+
+            <form action="/admin/add_room" method="post" class="space-y-3">
+
+                <label for="building_id" class="text-sm font-medium text-gray-700">Building</label>
+                <select id="building_id" name="building_id" class="w-full border p-2 rounded">
+                    {% for b in buildings %}
+                        <option value="{{b.id}}">{{b.name}}</option>
+                    {% endfor %}
+                </select>
+
+                <input type="text" name="name" placeholder="Room name"
+                    class="w-full border p-2 rounded" required>
+
+                <input type="text" name="description" placeholder="Description"
+                    class="w-full border p-2 rounded">
+
+                <input type="text" name="floor" placeholder="Floor"
+                    class="w-full border p-2 rounded">
+
+                <button type="submit"
+                    class="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">
+                    Add Room
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- STATS -->
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+
+        <div class="bg-white p-4 rounded shadow">
+            <p class="text-gray-500">Campuses</p>
+            <p class="text-xl font-bold">{{ campuses|length }}</p>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+            <p class="text-gray-500">Buildings</p>
+            <p class="text-xl font-bold">{{ buildings|length }}</p>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+            <p class="text-gray-500">Rooms</p>
+            <p class="text-xl font-bold">{{ rooms|length }}</p>
+        </div>
+
+    </div>
+
+    <!-- BUILDINGS LIST -->
+    <div class="mt-6 bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-3">Buildings</h3>
+
+        <ul class="space-y-2">
+            {% for b in buildings %}
+                <li class="flex justify-between items-center border-b pb-2">
+
+                    <span>{{ b.name }}</span>
+
+                    <div class="flex gap-3">
+                        <a href="/map?building_id={{ b.id }}"
+                           class="text-blue-600 text-sm hover:underline">
+                            View
+                        </a>
+
+                        <a href="/admin/delete_building/{{ b.id }}"
+                           class="text-red-600 text-sm hover:underline">
+                            Delete
+                        </a>
+                    </div>
+
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+</div>
+
+<!-- LEAFLET -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const mapEl = document.getElementById('buildingMap');
+    if (!mapEl) return;
+
+    var adminMap = L.map('buildingMap').setView([-4.0385, 39.6680], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(adminMap);
+
+    let marker;
+
+    adminMap.on('click', function(e) {
+
+        let lat = e.latlng.lat;
+        let lng = e.latlng.lng;
+
+        document.getElementById('latInput').value = lat;
+        document.getElementById('lngInput').value = lng;
+
+        if (marker) adminMap.removeLayer(marker);
+
+        marker = L.marker([lat, lng]).addTo(adminMap);
+    });
+
+});
+</script>
+
 {% endblock %}
