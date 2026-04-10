@@ -1,29 +1,33 @@
-// =======================
+// GLOBAL VARIABLES
+let selectedRouteIndex = 0;
+let currentRoutes = [];
+let navigating = false;
+let destination = null;
+let currentStepIndex = 0;
+let steps = [];
+let lastSpokenStep = -1;
+let arrivalThreshold = 20; // meters
+
+// Walking speed (meters per second)
+const WALKING_SPEED = 1.4;
+
 // MAP INITIALIZATION
-// =======================
-const map = L.map('map').setView([-4.0385, 39.6680], 16);
+let map = L.map('map').setView([-4.0385, 39.6680], 16);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-// Layers
 let markersLayer = L.layerGroup().addTo(map);
 let routeLayers = [];
 
-// =======================
-// GLOBAL STATE
-// =======================
+// STATE
 let userMarker = null;
 let accuracyCircle = null;
 let watchId = null;
-let currentDestination = null;
 let lastPosition = null;
-let lastRoutePoint = null;
 
-// =======================
-// LOAD BUILDINGS (INITIAL)
-// =======================
+// LOAD BUILDINGS
 fetch('/api/buildings')
     .then(res => res.json())
     .then(data => {
@@ -34,13 +38,10 @@ fetch('/api/buildings')
         });
     });
 
-// =======================
-// SEARCH SYSTEM
-// =======================
+// SEARCH
 const input = document.getElementById('searchInput');
 const suggestionsBox = document.getElementById('suggestions');
 
-// LIVE SUGGESTIONS
 input.addEventListener('input', () => {
     let query = input.value.trim();
 
@@ -62,7 +63,6 @@ input.addEventListener('input', () => {
             suggestionsBox.innerHTML = data.map(b => `
                 <div class="p-3 hover:bg-gray-100 cursor-pointer border-b"
                     onclick="selectBuilding(${b.lat}, ${b.lng}, '${b.name}', '${b.campus_name}')">
-
                     <div class="font-semibold">${b.name}</div>
                     <div class="text-sm text-gray-500">${b.campus_name}</div>
                 </div>
@@ -72,48 +72,42 @@ input.addEventListener('input', () => {
         });
 });
 
-// ENTER = SELECT FIRST RESULT
-input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        let first = suggestionsBox.querySelector('div');
-        if (first) first.click();
-    }
-});
-
-// =======================
 // SELECT BUILDING
-// =======================
 function selectBuilding(lat, lng, name, campus) {
 
     suggestionsBox.classList.add('hidden');
 
-    // Save recent
-    saveRecent({ name, campus, lat, lng });
+    destination = { lat, lng, name };
 
-    currentDestination = { lat, lng };
-
-    // Clear markers
     markersLayer.clearLayers();
 
-    // Add destination marker
     L.marker([lat, lng])
         .addTo(markersLayer)
-        .bindPopup(`
-            <b>${name}</b><br>${campus}<br><br>
-            <button onclick="startDirections(${lat}, ${lng})"
-                class="bg-green-600 text-white px-3 py-1 rounded">
-                Directions
-            </button>
-        `)
+        .bindPopup(`<b>${name}</b><br>${campus}`)
         .openPopup();
 
     map.setView([lat, lng], 18);
+
+    getUserLocation((userLat, userLng) => {
+        getRoute(userLat, userLng, lat, lng);
+    });
 }
 
-// =======================
-// USER LOCATION (BLUE DOT)
-// =======================
+// USER LOCATION
+function getUserLocation(callback) {
+    navigator.geolocation.getCurrentPosition(pos => {
+
+        let [lat, lng] = smoothPosition(
+            pos.coords.latitude,
+            pos.coords.longitude
+        );
+
+        updateUserLocation(lat, lng, pos.coords.accuracy);
+        callback(lat, lng);
+
+    }, () => alert("Enable location"));
+}
+
 function updateUserLocation(lat, lng, accuracy) {
 
     if (userMarker) map.removeLayer(userMarker);
@@ -133,10 +127,9 @@ function updateUserLocation(lat, lng, accuracy) {
     }).addTo(map);
 }
 
-// =======================
-// SMOOTH GPS (ANTI-JUMP)
-// =======================
+// SMOOTH GPS
 function smoothPosition(newLat, newLng) {
+
     if (!lastPosition) {
         lastPosition = [newLat, newLng];
         return lastPosition;
@@ -151,39 +144,123 @@ function smoothPosition(newLat, newLng) {
     return lastPosition;
 }
 
-// =======================
-// START DIRECTIONS
-// =======================
-function startDirections(destLat, destLng) {
+// ROUTING
 
-    currentDestination = { lat: destLat, lng: destLng };
+function getRoute(startLat, startLng, endLat, endLng) {
 
-    if (!navigator.geolocation) {
-        alert("Geolocation not supported");
-        return;
-    }
+    const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?alternatives=true&overview=full&geometries=geojson&steps=true`;
 
-    navigator.geolocation.getCurrentPosition(pos => {
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
 
-        let [lat, lng] = smoothPosition(
-            pos.coords.latitude,
-            pos.coords.longitude
-        );
+            if (!data.routes.length) return alert("No route");
 
-        updateUserLocation(lat, lng, pos.coords.accuracy);
-
-        drawRoute(lat, lng, destLat, destLng);
-
-        startLiveTracking();
-
-    }, () => {
-        alert("Enable location to navigate");
-    });
+            currentRoutes = data.routes;
+            renderRoutes();
+            openDirectionsPanel();
+        });
 }
 
-// =======================
-// LIVE TRACKING + REROUTE
-// =======================
+// DRAW ROUTES
+function renderRoutes() {
+
+    routeLayers.forEach(l => map.removeLayer(l));
+    routeLayers = [];
+
+    const optionsDiv = document.getElementById("routeOptions");
+    optionsDiv.innerHTML = "";
+
+    currentRoutes.forEach((route, index) => {
+
+        let coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+
+        let layer = L.polyline(coords, {
+            color: index === 0 ? 'green' : 'gray',
+            weight: 5
+        }).addTo(map);
+
+        routeLayers.push(layer);
+
+        // ✅ REALISTIC ETA
+        let duration = Math.round(route.distance / WALKING_SPEED / 60);
+        let distance = (route.distance / 1000).toFixed(2);
+
+        let btn = document.createElement("div");
+        btn.className = "p-2 border rounded cursor-pointer";
+
+        btn.innerHTML = `
+            <div>Route ${index + 1}</div>
+            <div class="text-sm">${duration} min • ${distance} km</div>
+        `;
+
+        btn.onclick = () => selectRoute(index);
+        optionsDiv.appendChild(btn);
+    });
+
+    map.fitBounds(routeLayers[0].getBounds());
+    updateETA(0);
+}
+
+// SELECT ROUTE
+function selectRoute(index) {
+
+    selectedRouteIndex = index;
+
+    routeLayers.forEach((l, i) => {
+        l.setStyle({ color: i === index ? 'green' : 'gray' });
+    });
+
+    updateETA(index);
+}
+
+// ETA
+function updateETA(index) {
+
+    let route = currentRoutes[index];
+
+    let duration = Math.round(route.distance / WALKING_SPEED / 60);
+    let distance = (route.distance / 1000).toFixed(2);
+
+    document.getElementById("etaBox").innerText =
+        `🚶 ${duration} min (${distance} km)`;
+}
+
+// VOICE NAVIGATION
+function speak(text) {
+    let speech = new SpeechSynthesisUtterance(text);
+    speech.lang = "en-US";
+    window.speechSynthesis.speak(speech);
+}
+
+// PANEL CONTROL
+function openDirectionsPanel() {
+    document.getElementById("directionsPanel").classList.remove("hidden");
+}
+
+function closeDirections() {
+    document.getElementById("directionsPanel").classList.add("hidden");
+}
+
+// START NAVIGATION
+document.getElementById("startNavBtn").onclick = function () {
+
+    if (!currentRoutes.length) return;
+
+    navigating = true;
+
+    steps = currentRoutes[selectedRouteIndex].legs[0].steps;
+    currentStepIndex = 0;
+    lastSpokenStep = -1;
+
+    speak("Navigation started");
+
+    startLiveTracking();
+};
+
+
+// LIVE TRACKING
+
 function startLiveTracking() {
 
     if (watchId) navigator.geolocation.clearWatch(watchId);
@@ -197,93 +274,10 @@ function startLiveTracking() {
 
         updateUserLocation(lat, lng, pos.coords.accuracy);
 
-        if (!currentDestination) return;
-
-        let current = [lat, lng];
-
-        if (!lastRoutePoint || map.distance(current, lastRoutePoint) > 20) {
-            drawRoute(lat, lng, currentDestination.lat, currentDestination.lng);
-            lastRoutePoint = current;
-        }
-
-    }, null, {
-        enableHighAccuracy: true,
-        maximumAge: 1000
-    });
+    }, null, { enableHighAccuracy: true });
 }
 
-// =======================
-// ROUTING (OSRM)
-// =======================
-function drawRoute(startLat, startLng, endLat, endLng) {
-
-    const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?alternatives=true&overview=full&geometries=geojson`;
-
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-
-            if (!data.routes || !data.routes.length) {
-                alert("No route found");
-                return;
-            }
-
-            // Clear old routes
-            routeLayers.forEach(layer => map.removeLayer(layer));
-            routeLayers = [];
-
-            // Sort routes (best first)
-            data.routes.sort((a, b) => {
-                if (a.duration === b.duration) return a.distance - b.distance;
-                return a.duration - b.duration;
-            });
-
-            data.routes.forEach((route, index) => {
-
-                let layer = L.geoJSON(route.geometry, {
-                    style: {
-                        color: index === 0 ? 'green' : 'gray',
-                        weight: index === 0 ? 6 : 4,
-                        opacity: index === 0 ? 1 : 0.6
-                    }
-                }).addTo(map);
-
-                routeLayers.push(layer);
-
-                layer.on('click', () => highlightRoute(index));
-
-                // Show ETA
-                if (index === 0) {
-                    let duration = Math.round(route.duration / 60);
-                    let distance = (route.distance / 1000).toFixed(2);
-
-                    L.popup()
-                        .setLatLng([endLat, endLng])
-                        .setContent(`🚶 ${duration} min (${distance} km)`)
-                        .openOn(map);
-                }
-            });
-
-            map.fitBounds(routeLayers[0].getBounds());
-        });
-}
-
-// =======================
-// SWITCH ROUTES
-// =======================
-function highlightRoute(selectedIndex) {
-    routeLayers.forEach((layer, i) => {
-        layer.setStyle({
-            color: i === selectedIndex ? 'green' : 'gray',
-            weight: i === selectedIndex ? 6 : 4,
-            opacity: i === selectedIndex ? 1 : 0.6
-        });
-    });
-}
-
-// =======================
-// RECENTS SYSTEM
-// =======================
+// RECENTS
 function saveRecent(place) {
 
     let recents = JSON.parse(localStorage.getItem("recentSearches")) || [];
@@ -308,7 +302,6 @@ function renderRecents() {
     container.innerHTML = recents.map(r => `
         <div class="p-2 hover:bg-gray-100 cursor-pointer"
             onclick="selectBuilding(${r.lat}, ${r.lng}, '${r.name}', '${r.campus}')">
-
             <div class="font-medium">${r.name}</div>
             <div class="text-sm text-gray-500">${r.campus}</div>
         </div>
@@ -317,10 +310,36 @@ function renderRecents() {
 
 renderRecents();
 
-// =======================
-// RESET MAP
-// =======================
+// RESET
 function resetMap() {
+
     map.setView([-4.0385, 39.6680], 16);
+
     markersLayer.clearLayers();
+
+    routeLayers.forEach(l => map.removeLayer(l));
+    routeLayers = [];
+
+    currentRoutes = [];
+    selectedRouteIndex = 0;
+    destination = null;
+
+    document.getElementById("routeOptions").innerHTML = "";
+    document.getElementById("etaBox").innerText = "";
+
+    closeDirections();
+
+    if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
+
+    if (userMarker) map.removeLayer(userMarker);
+    if (accuracyCircle) map.removeLayer(accuracyCircle);
+
+    userMarker = null;
+    accuracyCircle = null;
+
+    let reroute = document.getElementById("rerouteNotice");
+    if (reroute) reroute.classList.add("hidden");
 }

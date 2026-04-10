@@ -182,6 +182,16 @@ def add_building():
     if not require_admin():
         return "Unauthorized", 403
 
+    try:
+        lat = float(request.form['latitude'])
+        lng = float(request.form['longitude'])
+    except ValueError:
+        return "Invalid coordinates", 400
+
+    #range validation
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return "Coordinates out of range", 400
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -191,8 +201,8 @@ def add_building():
     """, (
         request.form['campus_id'],
         request.form['name'],
-        request.form['latitude'],
-        request.form['longitude']
+        lat,
+        lng
     ))
 
     conn.commit()
@@ -232,36 +242,44 @@ def add_room():
 
 #-------------------------- DELETE BUILDING --------------------------#
 
-@app.route('/admin/delete_building/<int:id>')
-def delete_building(id):
+@app.route('/admin/delete_building', methods=['POST'])
+def delete_building():
 
     if not require_admin():
         return "Unauthorized", 403
 
+    building_id = request.form['id']
+
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM building WHERE id=%s", (id,))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute("DELETE FROM building WHERE id=%s", (building_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return f"Error deleting building: {str(e)}", 500
+    finally:
+        cursor.close()
+        conn.close()
 
     return redirect('/admin')
 
 
 #-------------------------- DELETE ROOM --------------------------#
 
-@app.route('/admin/delete_room/<int:id>')
-def delete_room(id):
+@app.route('/admin/delete_room', methods=['POST'])
+def delete_room():
 
     if not require_admin():
         return "Unauthorized", 403
 
+    room_id = request.form['id']
+
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM room WHERE id=%s", (id,))
+    cursor.execute("DELETE FROM room WHERE id=%s", (room_id,))
 
     conn.commit()
     cursor.close()
@@ -295,7 +313,7 @@ def search():
                c.name AS campus_name
         FROM building b
         JOIN campus c ON b.campus_id = c.id
-        WHERE LOWER(b.name) LIKE %s
+        WHERE b.name LIKE %s
         LIMIT 10
     """
 

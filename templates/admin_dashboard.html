@@ -41,10 +41,12 @@
 
                 <!-- Coordinates -->
                 <div class="grid grid-cols-2 gap-2">
-                    <input id="latInput" type="text" name="latitude" placeholder="Latitude"
+                    <input id="latInput" type="number" step="any" name="latitude"
+                        placeholder="Latitude"
                         class="border p-2 rounded" required>
 
-                    <input id="lngInput" type="text" name="longitude" placeholder="Longitude"
+                    <input id="lngInput" type="number" step="any" name="longitude"
+                        placeholder="Longitude"
                         class="border p-2 rounded" required>
                 </div>
 
@@ -126,10 +128,13 @@
                             View
                         </a>
 
-                        <a href="/admin/delete_building/{{ b.id }}"
-                           class="text-red-600 text-sm hover:underline">
-                            Delete
-                        </a>
+                        <form action="/admin/delete_building" method="POST"
+                                onsubmit="return confirm('Delete this building AND ALL its rooms? This cannot be undone.');">
+
+                            <input type="hidden" name="id" value="{{ b.id }}">
+
+                            <button type="submit" class="text-red-600 text-sm hover:underline"> Delete </button>
+                        </form>
                     </div>
 
                 </li>

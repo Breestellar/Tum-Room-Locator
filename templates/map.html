@@ -4,13 +4,13 @@
 
 <div class="relative w-full h-[600px]">
 
-    <div id="map" class="w-full h-full rounded-lg shadow"></div>
+    <!-- MAP -->
+    <div id="map" class="w-full h-full rounded-lg shadow z-0"></div>
 
     <!-- CONTROLS PANEL -->
-    <div class="absolute top-4 left-4 right-4 z-[1000] flex gap-2 items-center">
+    <div class="absolute top-4 left-4 right-4 z-[1100] flex gap-2 items-center">
 
-        <label for="campusSelect" class="sr-only">Select Campus</label>
-        <select id="campusSelect" class="border p-2 rounded bg-white w-1/4 shadow">
+        <select id="campusSelect" class="border p-2 rounded bg-white w-1/4 shadow" title="Select campus">
             <option value="">All Campuses</option>
             <option value="1">Main Campus</option>
             <option value="2">Mazrui Campus</option>
@@ -22,7 +22,7 @@
                    class="border p-2 rounded w-full shadow">
 
             <div id="suggestions"
-                 class="absolute w-full bg-white border rounded shadow mt-1 hidden z-[1001] max-h-60 overflow-y-auto">
+                 class="absolute w-full bg-white border rounded shadow mt-1 hidden z-[1200] max-h-60 overflow-y-auto">
             </div>
         </div>
 
@@ -33,14 +33,55 @@
 
     </div>
 
-    <!-- RECENT BUILDINGS PANEL --> 
-    <div class="absolute top-20 left-4 w-64 bg-white shadow-lg rounded-lg p-3 z-[1000] max-h-60 overflow-y-auto">
+    <!-- RECENTS PANEL -->
+    <div id="recentsPanel"
+         class="absolute top-20 left-4 w-64 bg-white shadow-lg rounded-lg p-3 z-[1100] max-h-60 overflow-y-auto">
+
         <h4 class="text-sm font-semibold mb-2">Recent</h4>
         <div id="recentList"></div>
     </div>
 
 </div>
 
+<!-- DIRECTIONS PANEL (BOTTOM SHEET / SIDE PANEL) -->
+<div id="directionsPanel"
+     class="fixed bottom-0 left-0 w-full bg-white shadow-lg rounded-t-xl p-4 z-[1200] hidden
+            md:top-0 md:right-0 md:left-auto md:h-full md:w-96 md:rounded-none">
+
+    <!-- HEADER -->
+    <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-lg">Directions</h3>
+        <button onclick="closeDirections()" class="text-red-500 font-bold">✕</button>
+    </div>
+
+    <!-- ROUTE OPTIONS -->
+    <div id="routeOptions" class="space-y-2 mb-4"></div>
+
+    <!-- ETA -->
+    <div id="etaBox" class="text-sm text-gray-600 mb-4"></div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="flex gap-2">
+        <button id="startNavBtn"
+            class="bg-green-600 text-white px-4 py-2 rounded w-full">
+            Start
+        </button>
+
+        <button onclick="stopNavigation()"
+            class="bg-gray-400 text-white px-4 py-2 rounded w-full">
+            Stop
+        </button>
+    </div>
+
+    <!-- REROUTE INDICATOR -->
+    <div id="rerouteNotice"
+        class="hidden text-orange-500 text-sm mt-2">
+        Recalculating route...
+    </div>
+</div>
+
+<!-- SCRIPTS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+
 {% endblock %}
