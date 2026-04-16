@@ -228,8 +228,18 @@ function updateETA(index) {
 
 // VOICE NAVIGATION
 function speak(text) {
+
+    if (!('speechSynthesis' in window)) {
+        console.warn("Speech not supported");
+        return;
+    }
+
+    window.speechSynthesis.cancel(); // 🔥 prevents stacking
+
     let speech = new SpeechSynthesisUtterance(text);
     speech.lang = "en-US";
+    speech.rate = 1;
+
     window.speechSynthesis.speak(speech);
 }
 
@@ -273,6 +283,57 @@ function startLiveTracking() {
         );
 
         updateUserLocation(lat, lng, pos.coords.accuracy);
+
+        if (!navigating || !destination || !steps.length) return;
+
+        let userPos = L.latLng(lat, lng);
+
+
+        // ARRIVAL CHECK
+        let dest = L.latLng(destination.lat, destination.lng);
+        let distToDest = userPos.distanceTo(dest);
+
+        if (distToDest < arrivalThreshold) {
+            speak("You have arrived at your destination");
+            stopNavigation();
+            resetMap();
+            return;
+        }
+
+        // CURRENT STEP
+        let step = steps[currentStepIndex];
+        let stepCoords = step.geometry.coordinates;
+        let nextPoint = L.latLng(stepCoords[stepCoords.length - 1][1], stepCoords[stepCoords.length - 1][0]);
+
+        let distToStep = userPos.distanceTo(nextPoint);
+
+        // VOICE TRIGGER
+        if (distToStep < 15 && currentStepIndex !== lastSpokenStep) {
+
+            speak(step.maneuver.instruction);
+            lastSpokenStep = currentStepIndex;
+
+            currentStepIndex++;
+        }
+
+        // SMART REROUTE
+        let routeLine = routeLayers[selectedRouteIndex];
+        let closest = routeLine.getLatLngs().reduce((prev, curr) => {
+            return userPos.distanceTo(curr) < userPos.distanceTo(prev) ? curr : prev;
+        });
+
+        let deviation = userPos.distanceTo(closest);
+
+        if (deviation > 30) {
+
+            document.getElementById("rerouteNotice").classList.remove("hidden");
+
+            getRoute(lat, lng, destination.lat, destination.lng);
+
+            setTimeout(() => {
+                document.getElementById("rerouteNotice").classList.add("hidden");
+            }, 1500);
+        }
 
     }, null, { enableHighAccuracy: true });
 }
