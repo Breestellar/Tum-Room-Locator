@@ -378,6 +378,26 @@ function startLiveTracking() {
     }, null, { enableHighAccuracy: true });
 }
 
+function stopNavigation(){
+
+    navigating = false;
+
+    //Stop GPS Tracking
+    if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
+
+    //Stop Voice Assistant
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+
+    console.log("Navigation paused (route still visible)");
+}
+
+
+
 // RECENTS
 function saveRecent(place) {
 
