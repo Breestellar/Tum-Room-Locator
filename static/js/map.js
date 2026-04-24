@@ -60,36 +60,76 @@ input.addEventListener('input', () => {
                 return;
             }
 
-            suggestionsBox.innerHTML = data.map(b => `
-                <div class="p-3 hover:bg-gray-100 cursor-pointer border-b"
-                    onclick="selectBuilding(${b.lat}, ${b.lng}, '${b.name}', '${b.campus_name}')">
-                    <div class="font-semibold">${b.name}</div>
-                    <div class="text-sm text-gray-500">${b.campus_name}</div>
-                </div>
-            `).join('');
+            suggestionsBox.innerHTML = data.map(item => {
+
+                let title = item.room_name
+                    ? `${item.room_name} (Room)`
+                    : `${item.building_name} (Building)`;
+
+                let subtitle = item.room_name
+                    ? `${item.building_name} • Floor ${item.floor || 'N/A'}`
+                    : `Building`;
+
+                return `
+                    <div class="p-3 hover:bg-gray-100 cursor-pointer border-b"
+                        onclick="selectLocation(
+                            ${item.building_id},
+                            ${item.lat},
+                            ${item.lng},
+                            '${item.building_name}',
+                            '${item.room_name || ''}',
+                            '${item.floor || ''}'
+                        )">
+
+                        <div class="font-semibold">${title}</div>
+                        <div class="text-sm text-gray-500">${subtitle}</div>
+                    </div>
+                `;
+            }).join('');
 
             suggestionsBox.classList.remove('hidden');
         });
 });
 
-// SELECT BUILDING
-function selectBuilding(lat, lng, name, campus) {
+// SELECT LOCATION
+function selectLocation(buildingId, lat, lng, buildingName, roomName, floor) {
 
     suggestionsBox.classList.add('hidden');
 
-    destination = { lat, lng, name };
+    // Use building name if no room
+    let displayName = roomName
+        ? `${roomName} (${buildingName})`
+        : buildingName;
+
+    destination = {
+        lat,
+        lng,
+        name: displayName
+    };
 
     markersLayer.clearLayers();
 
     L.marker([lat, lng])
         .addTo(markersLayer)
-        .bindPopup(`<b>${name}</b><br>${campus}`)
+        .bindPopup(`
+            <b>${displayName}</b>
+            ${floor ? `<br>Floor: ${floor}` : ''}
+        `)
         .openPopup();
 
     map.setView([lat, lng], 18);
 
     getUserLocation((userLat, userLng) => {
         getRoute(userLat, userLng, lat, lng);
+    });
+
+    saveRecent({
+        buildingId,
+        name: buildingName,
+        lat,
+        lng,
+        roomName,
+        floor
     });
 }
 
@@ -345,7 +385,14 @@ function saveRecent(place) {
 
     recents = recents.filter(r => r.name !== place.name);
 
-    recents.unshift(place);
+    recents.unshift({
+        buildingId: place.buildingId || null,
+        name: place.name,
+        lat: place.lat,
+        lng: place.lng,
+        roomName: place.roomName || '',
+        floor: place.floor || ''
+    });
     recents = recents.slice(0, 5);
 
     localStorage.setItem("recentSearches", JSON.stringify(recents));
@@ -362,9 +409,18 @@ function renderRecents() {
 
     container.innerHTML = recents.map(r => `
         <div class="p-2 hover:bg-gray-100 cursor-pointer"
-            onclick="selectBuilding(${r.lat}, ${r.lng}, '${r.name}', '${r.campus}')">
+            onclick="selectLocation(
+                ${r.buildingId},
+                ${r.lat},
+                ${r.lng},
+                '${r.name}',
+                '${r.roomName}',
+                '${r.floor}'
+            )">
             <div class="font-medium">${r.name}</div>
-            <div class="text-sm text-gray-500">${r.campus}</div>
+            <div class="text-sm text-gray-500">
+                ${r.roomName ? `Room • Floor ${r.floor}` : 'Building'}
+            </div>
         </div>
     `).join('');
 }

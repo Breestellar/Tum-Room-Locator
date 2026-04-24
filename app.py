@@ -301,23 +301,29 @@ def map_view():
 @app.route('/api/search')
 def search():
 
+
+
     query = normalize_query(request.args.get('q', ''))
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
     sql = """
-        SELECT b.id, b.name,
-               b.latitude AS lat,
-               b.longitude AS lng,
-               c.name AS campus_name
+        SELECT b.id as building_id,
+               b.name as building_name,
+               b.latitude as lat,
+               b.longitude as lng,
+               r.name as room_name,
+               r.floor
         FROM building b
-        JOIN campus c ON b.campus_id = c.id
-        WHERE b.name LIKE %s
+        LEFT JOIN room r ON r.building_id = b.id
+        WHERE
+            b.name LIKE %s
+            OR (r.name IS NOT NULL AND LOWER(r.name)LIKE %s)
         LIMIT 10
     """
 
-    cursor.execute(sql, (f"%{query}%",))
+    cursor.execute(sql, (f"%{query}%", f"%{query}%"))
     results = cursor.fetchall()
 
     cursor.close()
