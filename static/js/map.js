@@ -2,13 +2,18 @@
 let selectedRouteIndex = 0;
 let currentRoutes = [];
 let navigating = false;
+let navigationPaused = false;
+let selectedRoomInstructions = "";
+let selectedFloor = "";
+let selectedBuilding = "";
 let destination = null;
 let currentStepIndex = 0;
 let steps = [];
 let lastSpokenStep = -1;
 let arrivalThreshold = 20; // meters
 
-// Walking speed (meters per second)
+const input = document.getElementById('searchInput');
+const suggestionsBox = document.getElementById('suggestions');
 const WALKING_SPEED = 1.4;
 
 // MAP INITIALIZATION
@@ -39,9 +44,6 @@ fetch('/api/buildings')
     });
 
 // SEARCH
-const input = document.getElementById('searchInput');
-const suggestionsBox = document.getElementById('suggestions');
-
 input.addEventListener('input', () => {
     let query = input.value.trim();
 
@@ -60,7 +62,12 @@ input.addEventListener('input', () => {
                 return;
             }
 
-            suggestionsBox.innerHTML = data.map(item => {
+            suggestionsBox.innerHTML = "";
+
+            data.forEach(item => {
+
+                let div = document.createElement("div");
+                div.className = "p-3 hover:bg-gray-100 cursor-pointer border-b";
 
                 let title = item.room_name
                     ? `${item.room_name} (Room)`
@@ -70,29 +77,33 @@ input.addEventListener('input', () => {
                     ? `${item.building_name} • Floor ${item.floor || 'N/A'}`
                     : `Building`;
 
-                return `
-                    <div class="p-3 hover:bg-gray-100 cursor-pointer border-b"
-                        onclick="selectLocation(
-                            ${item.building_id},
-                            ${item.lat},
-                            ${item.lng},
-                            '${item.building_name}',
-                            '${item.room_name || ''}',
-                            '${item.floor || ''}'
-                        )">
-
-                        <div class="font-semibold">${title}</div>
-                        <div class="text-sm text-gray-500">${subtitle}</div>
-                    </div>
+                div.innerHTML = `
+                    <div class="font-semibold">${title}</div>
+                    <div class="text-sm text-gray-500">${subtitle}</div>
                 `;
-            }).join('');
+
+                div.addEventListener("click", () => {
+                    selectLocation(
+                        item.building_id,
+                        item.lat,
+                        item.lng,
+                        item.building_name,
+                        item.room_name || '',
+                        item.floor || '',
+                        item.instructions || ''
+                    );
+                });
+
+                suggestionsBox.appendChild(div);
+            });
 
             suggestionsBox.classList.remove('hidden');
         });
 });
 
+
 // SELECT LOCATION
-function selectLocation(buildingId, lat, lng, buildingName, roomName, floor) {
+function selectLocation(buildingId, lat, lng, buildingName, roomName, floor, instructions) {
 
     suggestionsBox.classList.add('hidden');
 
@@ -106,6 +117,23 @@ function selectLocation(buildingId, lat, lng, buildingName, roomName, floor) {
         lng,
         name: displayName
     };
+
+    if (roomName) {
+
+    let infoBox = document.getElementById("roomInfo");
+
+    infoBox.innerHTML = `
+        <div class="p-3 bg-white shadow rounded mt-2">
+            <h3 class="font-semibold">${roomName}</h3>
+            <p>Building: ${buildingName}</p>
+            <p>Floor: ${floor}</p>
+            <p class="text-sm text-gray-600 mt-2">
+                ${instructions || "No instructions available"}
+            </p>
+        </div>
+    `;
+    console.log("SELECTED:", buildingName, roomName, lat, lng);
+}
 
     markersLayer.clearLayers();
 
@@ -131,6 +159,10 @@ function selectLocation(buildingId, lat, lng, buildingName, roomName, floor) {
         roomName,
         floor
     });
+
+    selectedRoomInstructions = instructions;
+    selectedFloor = floor;
+    selectedBuilding = buildingName;
 }
 
 // USER LOCATION
@@ -297,6 +329,17 @@ document.getElementById("startNavBtn").onclick = function () {
 
     if (!currentRoutes.length) return;
 
+    if (navigationPaused) {
+        navigating = true;
+        navigationPaused = false;
+
+        speak("Navigation resumed");
+        startLiveTracking();
+
+        this.innerText = "Stop Navigation";
+        return;
+    }
+
     navigating = true;
 
     steps = currentRoutes[selectedRouteIndex].legs[0].steps;
@@ -306,6 +349,8 @@ document.getElementById("startNavBtn").onclick = function () {
     speak("Navigation started");
 
     startLiveTracking();
+
+    this.innerText = "Stop Navigation"
 };
 
 
@@ -336,7 +381,7 @@ function startLiveTracking() {
         if (distToDest < arrivalThreshold) {
             speak("You have arrived at your destination");
             stopNavigation();
-            resetMap();
+            showRoomGuidance();
             return;
         }
 
@@ -381,6 +426,7 @@ function startLiveTracking() {
 function stopNavigation(){
 
     navigating = false;
+    navigationPaused = true;
 
     //Stop GPS Tracking
     if (watchId) {
@@ -393,10 +439,26 @@ function stopNavigation(){
         window.speechSynthesis.cancel();
     }
 
+    document.getElementById("startNavBtn").innerText = "Resume Navigation";
+
     console.log("Navigation paused (route still visible)");
 }
 
+function showRoomGuidance() {
 
+    let infoBox = document.getElementById("roomInfo");
+
+    infoBox.innerHTML = `
+        <div class="p-4 bg-green-50 border rounded mt-2">
+            <h3 class="font-bold text-lg">You've arrived at ${selectedBuilding}</h3>
+            <p class="mt-2">Next steps:</p>
+            <ul class="list-disc ml-5 text-sm mt-2">
+                <li>Go to Floor ${selectedFloor}</li>
+                <li>${selectedRoomInstructions || "Follow signs to your room"}</li>
+            </ul>
+        </div>
+    `;
+}
 
 // RECENTS
 function saveRecent(place) {
@@ -435,7 +497,8 @@ function renderRecents() {
                 ${r.lng},
                 '${r.name}',
                 '${r.roomName}',
-                '${r.floor}'
+                '${r.floor}',
+                ''
             )">
             <div class="font-medium">${r.name}</div>
             <div class="text-sm text-gray-500">
