@@ -10,7 +10,7 @@ let destination = null;
 let currentStepIndex = 0;
 let steps = [];
 let lastSpokenStep = -1;
-let arrivalThreshold = 20; // meters
+let arrivalThreshold = 30; // meters
 
 const input = document.getElementById('searchInput');
 const suggestionsBox = document.getElementById('suggestions');
@@ -218,16 +218,22 @@ function smoothPosition(newLat, newLng) {
 
 // ROUTING
 
+let routeCache = {};
+
 function getRoute(startLat, startLng, endLat, endLng) {
+    let key = `${startLat},${startLng}-${endLat},${endLng}`;
 
-    const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?alternatives=true&overview=full&geometries=geojson&steps=true`;
+    if (routeCache[key]) {
+        currentRoutes = routeCache[key];
+        renderRoutes();
+        openDirectionsPanel();
+        return;
+    }
 
-    fetch(url)
+    fetch(`https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&overview=full`)
         .then(res => res.json())
         .then(data => {
-
-            if (!data.routes.length) return alert("No route");
-
+            routeCache[key] = data.routes;
             currentRoutes = data.routes;
             renderRoutes();
             openDirectionsPanel();
@@ -329,6 +335,7 @@ document.getElementById("startNavBtn").onclick = function () {
 
     if (!currentRoutes.length) return;
 
+    // RESUME
     if (navigationPaused) {
         navigating = true;
         navigationPaused = false;
@@ -340,19 +347,24 @@ document.getElementById("startNavBtn").onclick = function () {
         return;
     }
 
-    navigating = true;
+    // START
+    if (!navigating) {
+        navigating = true;
 
-    steps = currentRoutes[selectedRouteIndex].legs[0].steps;
-    currentStepIndex = 0;
-    lastSpokenStep = -1;
+        steps = currentRoutes[selectedRouteIndex].legs[0].steps;
+        currentStepIndex = 0;
+        lastSpokenStep = -1;
 
-    speak("Navigation started");
+        speak("Navigation started");
+        startLiveTracking();
 
-    startLiveTracking();
+        this.innerText = "Stop Navigation";
+        return;
+    }
 
-    this.innerText = "Stop Navigation"
+    // STOP
+    stopNavigation();
 };
-
 
 // LIVE TRACKING
 
@@ -435,13 +447,9 @@ function stopNavigation(){
     }
 
     //Stop Voice Assistant
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-    }
+    window.speechSynthesis.cancel();
 
     document.getElementById("startNavBtn").innerText = "Resume Navigation";
-
-    console.log("Navigation paused (route still visible)");
 }
 
 function showRoomGuidance() {
@@ -449,13 +457,32 @@ function showRoomGuidance() {
     let infoBox = document.getElementById("roomInfo");
 
     infoBox.innerHTML = `
-        <div class="p-4 bg-green-50 border rounded mt-2">
-            <h3 class="font-bold text-lg">You've arrived at ${selectedBuilding}</h3>
-            <p class="mt-2">Next steps:</p>
-            <ul class="list-disc ml-5 text-sm mt-2">
-                <li>Go to Floor ${selectedFloor}</li>
-                <li>${selectedRoomInstructions || "Follow signs to your room"}</li>
-            </ul>
+        <div class="p-4 bg-white border rounded-lg shadow-lg mt-2">
+
+            <h3 class="font-bold text-lg text-green-700">
+                📍 You’ve arrived at ${selectedBuilding}
+            </h3>
+
+            <div class="mt-3 flex items-center gap-2">
+                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                    Floor ${selectedFloor || "N/A"}
+                </span>
+            </div>
+
+            <div class="mt-4">
+                <p class="font-semibold text-gray-700 mb-2">Next Steps:</p>
+
+                <ol class="list-decimal ml-5 text-sm text-gray-600 space-y-1">
+                    <li>Enter the building</li>
+                    <li>Proceed to Floor ${selectedFloor || "N/A"}</li>
+                    <li>${selectedRoomInstructions || "Follow signs to your room"}</li>
+                </ol>
+            </div>
+
+            <div class="mt-4 text-xs text-gray-400">
+                Tip: Look for signage inside the building for faster navigation
+            </div>
+
         </div>
     `;
 }
@@ -543,3 +570,11 @@ function resetMap() {
     let reroute = document.getElementById("rerouteNotice");
     if (reroute) reroute.classList.add("hidden");
 }
+
+L.control.zoom({
+    position: 'bottomright'
+}).addTo(map);
+
+L.control.locate({
+    position: 'bottomright'
+}).addTo(map);
