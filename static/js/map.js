@@ -421,7 +421,7 @@ function startLiveTracking() {
 
         let deviation = userPos.distanceTo(closest);
 
-        if (deviation > 30) {
+        if (deviation > 50) {
 
             document.getElementById("rerouteNotice").classList.remove("hidden");
 
@@ -430,6 +430,12 @@ function startLiveTracking() {
             setTimeout(() => {
                 document.getElementById("rerouteNotice").classList.add("hidden");
             }, 1500);
+        }
+        let lastRerouteTime = 0;
+
+        if (deviation > 50 && Date.now() - lastRerouteTime > 5000) {
+            lastRerouteTime = Date.now();
+            getRoute(lat, lng, destination.lat, destination.lng);
         }
 
     }, null, { enableHighAccuracy: true });
@@ -475,7 +481,7 @@ function showRoomGuidance() {
                 <ol class="list-decimal ml-5 text-sm text-gray-600 space-y-1">
                     <li>Enter the building</li>
                     <li>Proceed to Floor ${selectedFloor || "N/A"}</li>
-                    <li>${selectedRoomInstructions || "Follow signs to your room"}</li>
+                    <li>${selectedRoomInstructions || "Follow signage to your room"}</li>
                 </ol>
             </div>
 
