@@ -1,8 +1,9 @@
-import email
-import re, random
+import re, random, email, smtplib
 from click import confirm
+from datetime import datetime, timedelta
 from db import get_db
 from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session
+from flask_login import login_required
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -141,15 +142,15 @@ def forgot_password():
         cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
 
-        cursor.close()
-        conn.close()
-
         if user:
             otp = str(random.randint(100000, 999999))
+            expiry = datetime.now() + timedelta(minutes=5)
 
-            # store in session
-            session['reset_otp'] = otp
-            session['reset_email'] = email
+            cursor.execute(
+                "UPDATE users SET otp=%s, otp_expiry=%s WHERE email=%s",
+                (otp, expiry, email)
+            )
+            conn.commit()
 
             msg = Message(
                 'Your OTP Code',
@@ -159,15 +160,20 @@ def forgot_password():
             msg.body = f"""
 Hello {user['username']},
 
-Your OTP for password reset is: {otp}
+Your OTP is: {otp}
 
-This code expires when you leave the page.
+It expires in 5 minutes.
 """
 
             mail.send(msg)
 
-            return redirect(url_for('reset_password'))
+            cursor.close()
+            conn.close()
 
+            return redirect(url_for('reset_password', email=email))
+
+        cursor.close()
+        conn.close()
         flash('Email not found', 'danger')
 
     return render_template('forgot_password.html')
@@ -177,39 +183,61 @@ This code expires when you leave the page.
 @app.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
 
-    if 'reset_email' not in session:
+    email = request.args.get('email')
+
+    if not email:
         return redirect(url_for('forgot_password'))
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
 
     if request.method == 'POST':
         otp = request.form['otp']
-        new_password = request.form['password']
+        password = request.form['password']
+        confirm = request.form['confirm_password']
 
-        if otp != session.get('reset_otp'):
+        if password != confirm:
+            flash('Passwords do not match', 'danger')
+            return redirect(url_for('reset_password', email=email))
+
+        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+        user = cursor.fetchone()
+
+        if not user:
+            flash('User not found', 'danger')
+            return redirect(url_for('forgot_password'))
+
+        # check OTP
+        if user['otp'] != otp:
             flash('Invalid OTP', 'danger')
-            return redirect(url_for('reset_password'))
+            return redirect(url_for('reset_password', email=email))
 
-        conn = get_db()
-        cursor = conn.cursor()
+        # check expiry
+        if datetime.now() > user['otp_expiry']:
+            flash('OTP expired. Request a new one.', 'danger')
+            return redirect(url_for('forgot_password'))
 
-        hashed = generate_password_hash(new_password)
+        # update password
+        hashed = generate_password_hash(password)
 
         cursor.execute(
-            "UPDATE users SET password=%s WHERE email=%s",
-            (hashed, session['reset_email'])
+            "UPDATE users SET password=%s, otp=NULL, otp_expiry=NULL WHERE email=%s",
+            (hashed, email)
         )
-
         conn.commit()
+
         cursor.close()
         conn.close()
-
-        # clear session
-        session.pop('reset_otp', None)
-        session.pop('reset_email', None)
 
         flash('Password reset successful', 'success')
         return redirect(url_for('login'))
 
-    return render_template('reset_password.html')
+    cursor.close()
+    conn.close()
+    return render_template('reset_password.html', email=email)
+
+#------------------------- CHANGE PASSWORD ------------------------#
+
 
 #------------------------- LOGOUT ------------------------#
 
