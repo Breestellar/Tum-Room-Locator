@@ -143,6 +143,16 @@ def login():
 
     return render_template('login.html')
 
+#------------------------- ACCOUNT PAGE ------------------------#
+
+@app.route('/account')
+def account():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('account.html')
+
+
 #------------------------- FORGOT PASSWORD ------------------------#
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
