@@ -44,13 +44,26 @@ def normalize_query(q):
 
 @app.context_processor
 def inject_user():
+    if 'user_id' not in session:
+        return dict(current_user={"is_authenticated": False})
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT username, email, role FROM users WHERE id=%s", (session['user_id'],))
+    user = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
     return dict(
         current_user={
-            "is_authenticated": 'user_id' in session,
-            "role": session.get('role')
+            "is_authenticated": True,
+            "username": user['username'],
+            "email": user['email'],
+            "role": user['role']
         }
     )
-
 
 #--------------------- HOME PAGE ---------------------#
 

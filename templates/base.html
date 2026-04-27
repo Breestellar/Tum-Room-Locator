@@ -23,7 +23,8 @@
 
             <div class="mb-6">
                 <p class="text-sm">Logged in as:</p>
-                <p class="font-semibold">{{ current_user.role }}</p>
+                <p class="font-semibold">{{ current_user.username }}</p>
+                <p class="text-xs text-gray-200">{{ current_user.email }}</p>
             </div>
 
             <nav class="flex flex-col gap-3">
