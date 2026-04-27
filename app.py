@@ -152,6 +152,48 @@ def account():
 
     return render_template('account.html')
 
+#------------------------- CHANGE EMAIL ------------------------#
+
+@app.route('/change-email', methods=['GET', 'POST'])
+def change_email():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        new_email = request.form['email']
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT id FROM users WHERE email=%s", (new_email,))
+        existing = cursor.fetchone()
+
+        if existing:
+            flash('Email already in use', 'danger')
+            cursor.close()
+            conn.close()
+            return redirect(url_for('change_email'))
+
+        try:
+            cursor.execute(
+                "UPDATE users SET email=%s WHERE id=%s",
+                (new_email, session['user_id'])
+            )
+            conn.commit()
+
+        except Exception as e:
+            conn.rollback()
+            flash('Error updating email', 'danger')
+            print(e)
+
+        cursor.close()
+        conn.close()
+
+        flash('Email updated successfully', 'success')
+        return redirect(url_for('account'))
+
+    return render_template('change_email.html')
+
 
 #------------------------- FORGOT PASSWORD ------------------------#
 @app.route('/forgot-password', methods=['GET', 'POST'])
@@ -260,6 +302,7 @@ def reset_password():
     return render_template('reset_password.html', email=email)
 
 #------------------------- CHANGE PASSWORD ------------------------#
+
 
 
 #------------------------- LOGOUT ------------------------#
