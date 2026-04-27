@@ -11,47 +11,62 @@
 
 <body class="bg-gray-100">
 
-<div class="flex min-h-screen">
+<div class="flex">
 
     {% if current_user.is_authenticated %}
 
     <!-- SIDEBAR -->
-    <div class="w-64 bg-green-700 text-white p-5 flex flex-col justify-between">
+    <div id="sidebar"
+         class="bg-green-700 text-white h-screen w-64 p-5 fixed transition-all duration-300">
 
-        <div>
-            <h1 class="text-lg font-bold mb-6">TUM Locator</h1>
+        <button onclick="toggleSidebar()" class="mb-6">
+            ☰
+        </button>
 
-            <div class="mb-6">
-                <p class="text-sm">Logged in as:</p>
-                <p class="font-semibold">{{ current_user.username }}</p>
-                <p class="text-xs text-gray-200">{{ current_user.email }}</p>
-            </div>
+        <div id="sidebarContent">
+            <p class="font-semibold">{{ current_user.username }}</p>
+            <p class="text-xs text-gray-200 mb-6">{{ current_user.email }}</p>
 
             <nav class="flex flex-col gap-3">
-
-                <a href="/map" class="hover:underline">Map</a>
+                <a href="/map">Map</a>
+                <a href="/account">Account</a>
 
                 {% if current_user.role == 'admin' %}
-                    <a href="/admin" class="hover:underline">Admin</a>
+                    <a href="/admin">Admin</a>
                 {% endif %}
-
-                <a href="/account" class="hover:underline">Account</a>
-
             </nav>
         </div>
 
-        <a href="/logout" class="hover:underline">Logout</a>
+        <a href="/logout" class="absolute bottom-5">Logout</a>
 
     </div>
 
     {% endif %}
 
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 p-6">
+    <!-- MAIN -->
+    <div id="mainContent" class="flex-1 ml-64 p-6 transition-all duration-300">
         {% block content %}{% endblock %}
     </div>
 
 </div>
 
+<script>
+let collapsed = false;
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const content = document.getElementById('mainContent');
+
+    if (!collapsed) {
+        sidebar.style.width = '70px';
+        content.style.marginLeft = '70px';
+    } else {
+        sidebar.style.width = '256px';
+        content.style.marginLeft = '256px';
+    }
+
+    collapsed = !collapsed;
+}
+</script>
+
 </body>
-</html>
