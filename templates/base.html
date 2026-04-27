@@ -5,33 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TUM Room Locator</title>
 
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 
 <body class="bg-gray-100">
 
-<!-- NAVBAR -->
-<nav class="bg-green-700 text-white px-6 py-3 flex justify-between">
-    <h1 class="font-bold text-lg">TUM Room Locator</h1>
+<div class="flex min-h-screen">
 
-    <div class="flex gap-4">
-        <a href="/map" class="hover:underline">Map</a>
+    {% if current_user.is_authenticated %}
 
-        {% if current_user.role == 'admin' %}
-            <a href="/admin" class="hover:underline">Admin</a>
-        {% endif %}
+    <!-- SIDEBAR -->
+    <div class="w-64 bg-green-700 text-white p-5 flex flex-col justify-between">
+
+        <div>
+            <h1 class="text-lg font-bold mb-6">TUM Locator</h1>
+
+            <div class="mb-6">
+                <p class="text-sm">Logged in as:</p>
+                <p class="font-semibold">{{ current_user.role }}</p>
+            </div>
+
+            <nav class="flex flex-col gap-3">
+
+                <a href="/map" class="hover:underline">Map</a>
+
+                {% if current_user.role == 'admin' %}
+                    <a href="/admin" class="hover:underline">Admin</a>
+                {% endif %}
+
+                <a href="/account" class="hover:underline">Account</a>
+
+            </nav>
+        </div>
 
         <a href="/logout" class="hover:underline">Logout</a>
-    </div>
-</nav>
 
-<!-- CONTENT -->
-<div class="p-6">
-    {% block content %}{% endblock %}
+    </div>
+
+    {% endif %}
+
+    <!-- MAIN CONTENT -->
+    <div class="flex-1 p-6">
+        {% block content %}{% endblock %}
+    </div>
+
 </div>
 
 </body>
