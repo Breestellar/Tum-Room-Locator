@@ -1,6 +1,5 @@
 import email
-import re
-
+import re, random
 from click import confirm
 from db import get_db
 from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session
@@ -17,8 +16,9 @@ app.secret_key = 'supersecretkey'
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your_email@gmail.com'
-app.config['MAIL_PASSWORD'] = 'your_app_password'
+app.config['MAIL_USERNAME'] = 'kausistella@gmail.com'
+app.config['MAIL_PASSWORD'] = 'erwa llfx ezyj khmp'
+app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
 
 mail = Mail(app)
 
@@ -137,50 +137,76 @@ def forgot_password():
 
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id FROM users WHERE username=%s", (email,))
+
+        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
+
         cursor.close()
         conn.close()
 
         if user:
-            token = serializer.dumps(email, salt='password-reset')
+            otp = str(random.randint(100000, 999999))
 
-            reset_link = url_for('reset_password', token=token, _external=True)
+            # store in session
+            session['reset_otp'] = otp
+            session['reset_email'] = email
 
-            msg = Message('Password Reset Request',
-                          sender=app.config['MAIL_USERNAME'],
-                          recipients=[email])
-            msg.body = f'Click this link to reset your password: {reset_link}'
+            msg = Message(
+                'Your OTP Code',
+                recipients=[email]
+            )
+
+            msg.body = f"""
+Hello {user['username']},
+
+Your OTP for password reset is: {otp}
+
+This code expires when you leave the page.
+"""
 
             mail.send(msg)
 
-        flash('If that email exists, a reset link has been sent.', 'info')
-        return redirect(url_for('login'))
+            return redirect(url_for('reset_password'))
+
+        flash('Email not found', 'danger')
 
     return render_template('forgot_password.html')
 
 
 #------------------------- PASSWORD RESET ------------------------#
-@app.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    try:
-        email = serializer.loads(token, salt='password-reset', max_age=3600)
-    except:
-        flash('The reset link is invalid or expired.', 'danger')
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+
+    if 'reset_email' not in session:
         return redirect(url_for('forgot_password'))
 
     if request.method == 'POST':
+        otp = request.form['otp']
         new_password = request.form['password']
+
+        if otp != session.get('reset_otp'):
+            flash('Invalid OTP', 'danger')
+            return redirect(url_for('reset_password'))
 
         conn = get_db()
         cursor = conn.cursor()
+
         hashed = generate_password_hash(new_password)
-        cursor.execute("UPDATE users SET password=%s WHERE username=%s", (hashed, email))
+
+        cursor.execute(
+            "UPDATE users SET password=%s WHERE email=%s",
+            (hashed, session['reset_email'])
+        )
+
         conn.commit()
         cursor.close()
         conn.close()
 
-        flash('Password updated successfully.', 'success')
+        # clear session
+        session.pop('reset_otp', None)
+        session.pop('reset_email', None)
+
+        flash('Password reset successful', 'success')
         return redirect(url_for('login'))
 
     return render_template('reset_password.html')
