@@ -57,6 +57,7 @@ input.addEventListener('input', () => {
         .then(data => {
 
             if (!data.length) {
+                suggestionsBox.innerHTML = "<p class='p-2 text-gray-400'>Searching...</p>";
                 suggestionsBox.innerHTML = "<p class='p-2'>No results</p>";
                 suggestionsBox.classList.remove('hidden');
                 return;
@@ -229,6 +230,8 @@ function getRoute(startLat, startLng, endLat, endLng) {
         openDirectionsPanel();
         return;
     }
+
+    document.getElementById("etaBox").innerText = "Calculating route...";
 
     fetch(`https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&overview=full`)
         .then(res => res.json())

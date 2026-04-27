@@ -1,10 +1,28 @@
+import email
 import re
+
+from click import confirm
 from db import get_db
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
+
+import db
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
+
+#------------------------- MAIL CONFIG ------------------------#
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'your_email@gmail.com'
+app.config['MAIL_PASSWORD'] = 'your_app_password'
+
+mail = Mail(app)
+
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 
 #------------------------ HELPER FUNCTIONS ------------------------#
@@ -46,7 +64,7 @@ def home():
 def register():
 
     if request.method == 'POST':
-
+        email = request.form['email']
         username = request.form['username']
         password = request.form['password']
         confirm = request.form['confirm_password']
@@ -57,22 +75,21 @@ def register():
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
 
-        # Check duplicate user
-        cursor.execute("SELECT id FROM users WHERE username=%s", (username,))
+        # check duplicates
+        cursor.execute("SELECT id FROM users WHERE username=%s OR email=%s", (username, email))
         existing = cursor.fetchone()
 
         if existing:
             cursor.close()
             conn.close()
-            return render_template('register.html', error="Username already exists")
+            return render_template('register.html', error="Username or Email already exists")
 
         hashed = generate_password_hash(password)
 
         cursor.execute(
-            "INSERT INTO users (username, password, role) VALUES (%s, %s, 'user')",
-            (username, hashed)
-        )
-
+            "INSERT INTO users (username, email, password, role) VALUES (%s, %s, %s, 'user')",
+            (username, email, hashed)
+    )
         conn.commit()
         cursor.close()
         conn.close()
@@ -112,6 +129,61 @@ def login():
 
     return render_template('login.html')
 
+#------------------------- FORGOT PASSWORD ------------------------#
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id FROM users WHERE username=%s", (email,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if user:
+            token = serializer.dumps(email, salt='password-reset')
+
+            reset_link = url_for('reset_password', token=token, _external=True)
+
+            msg = Message('Password Reset Request',
+                          sender=app.config['MAIL_USERNAME'],
+                          recipients=[email])
+            msg.body = f'Click this link to reset your password: {reset_link}'
+
+            mail.send(msg)
+
+        flash('If that email exists, a reset link has been sent.', 'info')
+        return redirect(url_for('login'))
+
+    return render_template('forgot_password.html')
+
+
+#------------------------- PASSWORD RESET ------------------------#
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = serializer.loads(token, salt='password-reset', max_age=3600)
+    except:
+        flash('The reset link is invalid or expired.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form['password']
+
+        conn = get_db()
+        cursor = conn.cursor()
+        hashed = generate_password_hash(new_password)
+        cursor.execute("UPDATE users SET password=%s WHERE username=%s", (hashed, email))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Password updated successfully.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html')
 
 #------------------------- LOGOUT ------------------------#
 
