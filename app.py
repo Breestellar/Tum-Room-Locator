@@ -303,7 +303,47 @@ def reset_password():
 
 #------------------------- CHANGE PASSWORD ------------------------#
 
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
 
+    if request.method == 'POST':
+        current = request.form['current_password']
+        new = request.form['new_password']
+        confirm = request.form['confirm_password']
+
+        if new != confirm:
+            flash('Passwords do not match', 'danger')
+            return redirect(url_for('change_password'))
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT password FROM users WHERE id=%s", (session['user_id'],))
+        user = cursor.fetchone()
+
+        if not check_password_hash(user['password'], current):
+            flash('Current password incorrect', 'danger')
+            cursor.close()
+            conn.close()
+            return redirect(url_for('change_password'))
+
+        hashed = generate_password_hash(new)
+
+        cursor.execute(
+            "UPDATE users SET password=%s WHERE id=%s",
+            (hashed, session['user_id'])
+        )
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        flash('Password updated successfully', 'success')
+        return redirect(url_for('account'))
+
+    return render_template('change_password.html')
 
 #------------------------- LOGOUT ------------------------#
 
