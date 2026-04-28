@@ -3,6 +3,8 @@ let selectedRouteIndex = 0;
 let currentRoutes = [];
 let navigating = false;
 let navigationPaused = false;
+let routeCache = {};
+let selectedPlace = null;
 let selectedRoomInstructions = "";
 let selectedFloor = "";
 let selectedBuilding = "";
@@ -114,8 +116,18 @@ function selectLocation(
 ) {
   suggestionsBox.classList.add("hidden");
 
-  // Use building name if no room
-  let displayName = roomName ? `${roomName} (${buildingName})` : buildingName;
+  const displayName = roomName ? `${roomName} (${buildingName})` : buildingName;
+
+  selectedPlace = {
+    buildingId,
+    lat,
+    lng,
+    buildingName,
+    roomName,
+    floor,
+    instructions,
+    displayName,
+  };
 
   destination = {
     lat,
@@ -123,39 +135,20 @@ function selectLocation(
     name: displayName,
   };
 
-  if (roomName) {
-    let infoBox = document.getElementById("roomInfo");
-
-    infoBox.innerHTML = `
-        <div class="p-3 bg-white shadow rounded mt-2">
-            <h3 class="font-semibold">${roomName}</h3>
-            <p>Building: ${buildingName}</p>
-            <p>Floor: ${floor}</p>
-            <p class="text-sm text-gray-600 mt-2">
-                ${instructions || "No instructions available"}
-            </p>
-        </div>
-    `;
-    console.log("SELECTED:", buildingName, roomName, lat, lng);
-  }
+  selectedRoomInstructions = instructions;
+  selectedFloor = floor;
+  selectedBuilding = buildingName;
 
   markersLayer.clearLayers();
 
   L.marker([lat, lng])
     .addTo(markersLayer)
-    .bindPopup(
-      `
-            <b>${displayName}</b>
-            ${floor ? `<br>Floor: ${floor}` : ""}
-        `,
-    )
+    .bindPopup(`<b>${displayName}</b>`)
     .openPopup();
 
   map.setView([lat, lng], 18);
 
-  getUserLocation((userLat, userLng) => {
-    getRoute(userLat, userLng, lat, lng);
-  });
+  showPlaceInfo(selectedPlace);
 
   saveRecent({
     buildingId,
@@ -166,9 +159,47 @@ function selectLocation(
     floor,
   });
 
-  selectedRoomInstructions = instructions;
-  selectedFloor = floor;
-  selectedBuilding = buildingName;
+  logSearch(displayName);
+}
+
+function showPlaceInfo(place) {
+  const panel = document.getElementById("placeInfoPanel");
+  const title = document.getElementById("placeTitle");
+  const type = document.getElementById("placeType");
+  const details = document.getElementById("placeDetails");
+
+  title.textContent = place.roomName ? `${place.roomName}` : place.buildingName;
+
+  type.textContent = place.roomName
+    ? `Room in ${place.buildingName}`
+    : "Building";
+
+  details.innerHTML = place.roomName
+    ? `
+        <p><strong>Building:</strong> ${place.buildingName}</p>
+        <p><strong>Floor:</strong> ${place.floor || "N/A"}</p>
+        <p><strong>Instructions:</strong> ${place.instructions || "No room instructions added yet."}</p>
+      `
+    : `
+        <p><strong>Location:</strong> TUM Campus</p>
+        <p>Select Directions to calculate the best walking route.</p>
+      `;
+
+  panel.classList.remove("hidden");
+}
+
+function closePlaceInfo() {
+  document.getElementById("placeInfoPanel").classList.add("hidden");
+}
+
+function showDirectionsForSelectedPlace() {
+  if (!selectedPlace) return;
+
+  document.getElementById("etaBox").innerText = "Getting your location...";
+
+  getUserLocation((userLat, userLng) => {
+    getRouteSmart(userLat, userLng, selectedPlace.lat, selectedPlace.lng);
+  });
 }
 
 // USER LOCATION
@@ -223,41 +254,16 @@ function smoothPosition(newLat, newLng) {
 
 // ROUTING
 
-let routeCache = {};
+function getRouteSmart(startLat, startLng, endLat, endLng) {
+  const distance = getDistance(startLat, startLng, endLat, endLng);
 
-function getRoute(startLat, startLng, endLat, endLng) {
-  let key = `${startLat},${startLng}-${endLat},${endLng}`;
+  routeLayers.forEach((layer) => map.removeLayer(layer));
+  routeLayers = [];
 
-  if (routeCache[key]) {
-    currentRoutes = routeCache[key];
-    renderRoutes();
-    openDirectionsPanel();
-    return;
-  }
-
-  document.getElementById("etaBox").innerText = "Calculating route...";
-
-  fetch(
-    `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&overview=full`,
-  )
-    .then((res) => res.json())
-    .then((data) => {
-      routeCache[key] = data.routes;
-      currentRoutes = data.routes;
-      renderRoutes();
-      openDirectionsPanel();
-    });
-}
-
-function calculateRoute(userLat, userLng, destLat, destLng) {
-  const distance = getDistance(userLat, userLng, destLat, destLng);
-
-  // if close → draw straight line
-  if (distance < 300) {
-    // meters
-    drawDirectLine(userLat, userLng, destLat, destLng);
+  if (distance <= 250) {
+    drawDirectRoute(startLat, startLng, endLat, endLng, distance);
   } else {
-    drawOSRMRoute(userLat, userLng, destLat, destLng);
+    getRoute(startLat, startLng, endLat, endLng);
   }
 }
 
@@ -275,8 +281,8 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-function drawDirectLine(lat1, lng1, lat2, lng2) {
-  L.polyline(
+function drawDirectRoute(lat1, lng1, lat2, lng2, distance) {
+  const layer = L.polyline(
     [
       [lat1, lng1],
       [lat2, lng2],
@@ -284,8 +290,45 @@ function drawDirectLine(lat1, lng1, lat2, lng2) {
     {
       color: "green",
       weight: 5,
+      dashArray: "8, 8",
     },
   ).addTo(map);
+
+  routeLayers.push(layer);
+
+  const duration = Math.max(1, Math.round(distance / WALKING_SPEED / 60));
+  const km = (distance / 1000).toFixed(2);
+
+  currentRoutes = [
+    {
+      distance: distance,
+      duration: duration * 60,
+      geometry: {
+        coordinates: [
+          [lng1, lat1],
+          [lng2, lat2],
+        ],
+      },
+      legs: [
+        {
+          steps: [],
+        },
+      ],
+    },
+  ];
+
+  document.getElementById("routeOptions").innerHTML = `
+    <div class="p-3 border rounded-lg bg-green-50">
+      <div class="font-semibold">Direct campus route</div>
+      <div class="text-sm text-gray-600">${duration} min • ${km} km</div>
+    </div>
+  `;
+
+  document.getElementById("etaBox").innerText =
+    `Walking estimate: ${duration} min (${km} km)`;
+
+  openDirectionsPanel();
+  map.fitBounds(layer.getBounds());
 }
 
 // DRAW ROUTES
