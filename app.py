@@ -475,6 +475,65 @@ def add_building():
     return redirect('/admin')
 
 
+#-------------------------- EDIT BUILDING --------------------------#
+
+@app.route('/admin/edit_building/<int:building_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_building(building_id):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == 'POST':
+        name = request.form['name']
+        latitude = request.form['latitude']
+        longitude = request.form['longitude']
+
+        cursor.execute("""
+            UPDATE building
+            SET name=%s, latitude=%s, longitude=%s
+            WHERE id=%s
+        """, (name, latitude, longitude, building_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Building updated successfully', 'success')
+        return redirect(url_for('admin'))
+
+    cursor.execute("SELECT * FROM building WHERE id=%s", (building_id,))
+    building = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return render_template('edit_building.html', building=building)
+
+
+#-------------------------- DELETE BUILDING --------------------------#
+
+@app.route('/admin/delete_building', methods=['POST'])
+@admin_required
+def delete_building():
+
+    building_id = request.form['id']
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("DELETE FROM building WHERE id=%s", (building_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return f"Error deleting building: {str(e)}", 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect('/admin')
+
+
 #----------------------- ADD ROOM -----------------------#
 
 @app.route('/admin/add_room', methods=['POST'])
@@ -501,28 +560,40 @@ def add_room():
     return redirect('/admin')
 
 
-#-------------------------- DELETE BUILDING --------------------------#
+#-------------------------- EDIT ROOM --------------------------#
 
-@app.route('/admin/delete_building', methods=['POST'])
+@app.route('/admin/edit_room/<int:room_id>', methods=['GET', 'POST'])
 @admin_required
-def delete_building():
-
-    building_id = request.form['id']
-
+def edit_room(room_id):
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
-    try:
-        cursor.execute("DELETE FROM building WHERE id=%s", (building_id,))
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form.get('description', '')
+        floor = request.form.get('floor', '')
+        instructions = request.form.get('instructions', '')
+
+        cursor.execute("""
+            UPDATE room
+            SET name=%s, description=%s, floor=%s, instructions=%s
+            WHERE id=%s
+        """, (name, description, floor, instructions, room_id))
+
         conn.commit()
-    except Exception as e:
-        conn.rollback()
-        return f"Error deleting building: {str(e)}", 500
-    finally:
         cursor.close()
         conn.close()
 
-    return redirect('/admin')
+        flash('Room updated successfully', 'success')
+        return redirect(url_for('admin'))
+
+    cursor.execute("SELECT * FROM room WHERE id=%s", (room_id,))
+    room = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return render_template('edit_room.html', room=room)
 
 
 #-------------------------- DELETE ROOM --------------------------#
