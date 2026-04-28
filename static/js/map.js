@@ -20,6 +20,7 @@ const WALKING_SPEED = 1.4;
 
 // MAP INITIALIZATION
 let map = L.map("map").setView([-4.0385, 39.668], 16);
+window.map = map;
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
