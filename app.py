@@ -684,6 +684,32 @@ def search():
     return jsonify(results)
 
 
+#-------------------------- LOG SEARCH API --------------------------#
+
+@app.route('/api/log-search', methods=['POST'])
+@login_required
+def log_search():
+    data = request.get_json()
+    location_name = data.get('location_name', '').strip()
+
+    if not location_name:
+        return jsonify({"status": "ignored"})
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO searches (user_id, location_name) VALUES (%s, %s)",
+        (session['user_id'], location_name)
+    )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
+
+
 #-------------------------- BUILDINGS API --------------------------#
 
 @app.route('/api/buildings')

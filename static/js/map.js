@@ -104,6 +104,19 @@ input.addEventListener("input", () => {
     });
 });
 
+// LOG SEARCHES
+function logSearch(locationName) {
+  fetch("/api/log-search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      location_name: locationName,
+    }),
+  }).catch((error) => console.warn("Search log failed:", error));
+}
+
 // SELECT LOCATION
 function selectLocation(
   buildingId,
@@ -162,6 +175,7 @@ function selectLocation(
   logSearch(displayName);
 }
 
+// PLACE INFO PANEL
 function showPlaceInfo(place) {
   const panel = document.getElementById("placeInfoPanel");
   const title = document.getElementById("placeTitle");
@@ -192,6 +206,7 @@ function closePlaceInfo() {
   document.getElementById("placeInfoPanel").classList.add("hidden");
 }
 
+// DIRECTIONS
 function showDirectionsForSelectedPlace() {
   if (!selectedPlace) return;
 
@@ -217,7 +232,7 @@ function getUserLocation(callback) {
     () => alert("Enable location"),
   );
 }
-
+// UPDATE USER LOCATION
 function updateUserLocation(lat, lng, accuracy) {
   if (userMarker) map.removeLayer(userMarker);
   if (accuracyCircle) map.removeLayer(accuracyCircle);
@@ -267,6 +282,7 @@ function getRouteSmart(startLat, startLng, endLat, endLng) {
   }
 }
 
+// DISTANCE
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
@@ -281,6 +297,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+// DIRECT ROUTE
 function drawDirectRoute(lat1, lng1, lat2, lng2, distance) {
   const layer = L.polyline(
     [
@@ -331,7 +348,7 @@ function drawDirectRoute(lat1, lng1, lat2, lng2, distance) {
   map.fitBounds(layer.getBounds());
 }
 
-// DRAW ROUTES
+// RENDER ROUTES
 function renderRoutes() {
   routeLayers.forEach((l) => map.removeLayer(l));
   routeLayers = [];
