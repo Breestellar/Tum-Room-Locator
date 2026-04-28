@@ -1,9 +1,14 @@
-import re, random
+import re, random, os, pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
+from io import BytesIO
 from db import get_db
-from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session, send_file
 from flask_mail import Mail, Message
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -823,12 +828,21 @@ def api_rooms(building_id):
     return jsonify(rooms)
 
 #-------------------------- RECENTS PAGE --------------------------#
+
 @app.route('/recents')
 @login_required
 def recents():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     return render_template('recents.html')
+
+#-------------------------- REPORTS PAGE --------------------------#
+
+@app.route('/reports')
+@admin_required
+def reports():
+    return render_template('reports.html')
+
 
 #------------------- RUN APP -------------------#
 

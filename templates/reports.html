@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow">
+
+    <h2 class="text-2xl font-bold text-green-700 mb-2">Reports</h2>
+    <p class="text-gray-500 mb-6">
+        Generate professional Excel and PDF reports with filters.
+    </p>
+
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <div>
+            <label for="report_type" class="text-sm text-gray-600">Report Type</label>
+            <select name="report_type" id="report_type" class="w-full border p-3 rounded-lg">
+                <option value="users">Users Report</option>
+                <option value="locations">Locations Report</option>
+                <option value="searches">Search Analytics</option>
+                <option value="summary">System Summary</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="format" class="text-sm text-gray-600">Format</label>
+            <select name="format" id="format" class="w-full border p-3 rounded-lg">
+                <option value="excel">Excel</option>
+                <option value="pdf">PDF</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="start_date" class="text-sm text-gray-600">Start Date</label>
+            <input type="date" name="start_date" id="start_date" class="w-full border p-3 rounded-lg">
+        </div>
+
+        <div>
+            <label for="end_date" class="text-sm text-gray-600">End Date</label>
+            <input type="date" name="end_date" id="end_date" class="w-full border p-3 rounded-lg">
+        </div>
+
+        <div class="md:col-span-2">
+            <button formaction="/export-report"
+                    class="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-green-700">
+                Generate Report
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}
