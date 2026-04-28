@@ -211,13 +211,32 @@ function closePlaceInfo() {
 function showDirectionsForSelectedPlace() {
   if (!selectedPlace) return;
 
-  document.getElementById("etaBox").innerText = "Getting your location...";
+  openDirectionsPanel();
+
+  document.getElementById("routeOptions").innerHTML = `
+    <div class="p-3 bg-gray-50 border rounded-lg">
+      Calculating best route...
+    </div>
+  `;
+
+  document.getElementById("etaBox").innerText =
+    "This may take a few seconds for longer distances.";
+
+  const timeout = setTimeout(() => {
+    document.getElementById("etaBox").innerText =
+      "Route is taking longer than expected. Check your internet connection or try again.";
+  }, 8000);
 
   getUserLocation((userLat, userLng) => {
-    getRouteSmart(userLat, userLng, selectedPlace.lat, selectedPlace.lng);
+    getRouteSmart(
+      userLat,
+      userLng,
+      selectedPlace.lat,
+      selectedPlace.lng,
+      timeout,
+    );
   });
 }
-
 // USER LOCATION
 function getUserLocation(callback) {
   navigator.geolocation.getCurrentPosition(
@@ -269,17 +288,60 @@ function smoothPosition(newLat, newLng) {
 }
 
 // ROUTING
+function getRoute(startLat, startLng, endLat, endLng, timeout = null) {
+  let key = `${startLat},${startLng}-${endLat},${endLng}`;
 
-function getRouteSmart(startLat, startLng, endLat, endLng) {
+  if (routeCache[key]) {
+    if (timeout) clearTimeout(timeout);
+    currentRoutes = routeCache[key];
+    renderRoutes();
+    openDirectionsPanel();
+    return;
+  }
+
+  fetch(
+    `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&overview=full`,
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      if (timeout) clearTimeout(timeout);
+
+      if (!data.routes || !data.routes.length) {
+        document.getElementById("routeOptions").innerHTML = `
+          <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600">
+            No route found. Try again or use direct campus direction.
+          </div>
+        `;
+        return;
+      }
+
+      routeCache[key] = data.routes;
+      currentRoutes = data.routes;
+      renderRoutes();
+      openDirectionsPanel();
+    })
+    .catch(() => {
+      if (timeout) clearTimeout(timeout);
+
+      document.getElementById("routeOptions").innerHTML = `
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600">
+          Could not load route. Please check your internet connection.
+        </div>
+      `;
+    });
+}
+
+function getRouteSmart(startLat, startLng, endLat, endLng, timeout = null) {
   const distance = getDistance(startLat, startLng, endLat, endLng);
 
   routeLayers.forEach((layer) => map.removeLayer(layer));
   routeLayers = [];
 
   if (distance <= 250) {
+    if (timeout) clearTimeout(timeout);
     drawDirectRoute(startLat, startLng, endLat, endLng, distance);
   } else {
-    getRoute(startLat, startLng, endLat, endLng);
+    getRoute(startLat, startLng, endLat, endLng, timeout);
   }
 }
 
