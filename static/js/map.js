@@ -12,15 +12,16 @@ let steps = [];
 let lastSpokenStep = -1;
 let arrivalThreshold = 30; // meters
 
-const input = document.getElementById('searchInput');
-const suggestionsBox = document.getElementById('suggestions');
+const input = document.getElementById("searchInput");
+const suggestionsBox = document.getElementById("suggestions");
 const WALKING_SPEED = 1.4;
 
 // MAP INITIALIZATION
-let map = L.map('map').setView([-4.0385, 39.6680], 16);
+let map = L.map("map").setView([-4.0385, 39.668], 16);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "© OpenStreetMap",
 }).addTo(map);
 
 let markersLayer = L.layerGroup().addTo(map);
@@ -33,94 +34,96 @@ let watchId = null;
 let lastPosition = null;
 
 // LOAD BUILDINGS
-fetch('/api/buildings')
-    .then(res => res.json())
-    .then(data => {
-        data.forEach(b => {
-            L.marker([b.lat, b.lng])
-                .addTo(markersLayer)
-                .bindPopup(`<b>${b.name}</b>`);
-        });
+fetch("/api/buildings")
+  .then((res) => res.json())
+  .then((data) => {
+    data.forEach((b) => {
+      L.marker([b.lat, b.lng])
+        .addTo(markersLayer)
+        .bindPopup(`<b>${b.name}</b>`);
     });
+  });
 
 // SEARCH
-input.addEventListener('input', () => {
-    let query = input.value.trim();
+input.addEventListener("input", () => {
+  let query = input.value.trim();
 
-    if (query.length < 2) {
-        suggestionsBox.classList.add('hidden');
+  if (query.length < 2) {
+    suggestionsBox.classList.add("hidden");
+    return;
+  }
+
+  fetch(`/api/search?q=${query}`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data.length) {
+        suggestionsBox.innerHTML =
+          "<p class='p-2 text-gray-400'>Searching...</p>";
+        suggestionsBox.innerHTML = "<p class='p-2'>No results</p>";
+        suggestionsBox.classList.remove("hidden");
         return;
-    }
+      }
 
-    fetch(`/api/search?q=${query}`)
-        .then(res => res.json())
-        .then(data => {
+      suggestionsBox.innerHTML = "";
 
-            if (!data.length) {
-                suggestionsBox.innerHTML = "<p class='p-2 text-gray-400'>Searching...</p>";
-                suggestionsBox.innerHTML = "<p class='p-2'>No results</p>";
-                suggestionsBox.classList.remove('hidden');
-                return;
-            }
+      data.forEach((item) => {
+        let div = document.createElement("div");
+        div.className = "p-3 hover:bg-gray-100 cursor-pointer border-b";
 
-            suggestionsBox.innerHTML = "";
+        let title = item.room_name
+          ? `${item.room_name} (Room)`
+          : `${item.building_name} (Building)`;
 
-            data.forEach(item => {
+        let subtitle = item.room_name
+          ? `${item.building_name} • Floor ${item.floor || "N/A"}`
+          : `Building`;
 
-                let div = document.createElement("div");
-                div.className = "p-3 hover:bg-gray-100 cursor-pointer border-b";
-
-                let title = item.room_name
-                    ? `${item.room_name} (Room)`
-                    : `${item.building_name} (Building)`;
-
-                let subtitle = item.room_name
-                    ? `${item.building_name} • Floor ${item.floor || 'N/A'}`
-                    : `Building`;
-
-                div.innerHTML = `
+        div.innerHTML = `
                     <div class="font-semibold">${title}</div>
                     <div class="text-sm text-gray-500">${subtitle}</div>
                 `;
 
-                div.addEventListener("click", () => {
-                    selectLocation(
-                        item.building_id,
-                        item.lat,
-                        item.lng,
-                        item.building_name,
-                        item.room_name || '',
-                        item.floor || '',
-                        item.instructions || ''
-                    );
-                });
-
-                suggestionsBox.appendChild(div);
-            });
-
-            suggestionsBox.classList.remove('hidden');
+        div.addEventListener("click", () => {
+          selectLocation(
+            item.building_id,
+            item.lat,
+            item.lng,
+            item.building_name,
+            item.room_name || "",
+            item.floor || "",
+            item.instructions || "",
+          );
         });
+
+        suggestionsBox.appendChild(div);
+      });
+
+      suggestionsBox.classList.remove("hidden");
+    });
 });
 
-
 // SELECT LOCATION
-function selectLocation(buildingId, lat, lng, buildingName, roomName, floor, instructions) {
+function selectLocation(
+  buildingId,
+  lat,
+  lng,
+  buildingName,
+  roomName,
+  floor,
+  instructions,
+) {
+  suggestionsBox.classList.add("hidden");
 
-    suggestionsBox.classList.add('hidden');
+  // Use building name if no room
+  let displayName = roomName ? `${roomName} (${buildingName})` : buildingName;
 
-    // Use building name if no room
-    let displayName = roomName
-        ? `${roomName} (${buildingName})`
-        : buildingName;
+  destination = {
+    lat,
+    lng,
+    name: displayName,
+  };
 
-    destination = {
-        lat,
-        lng,
-        name: displayName
-    };
-
-    if (roomName) {
-
+  if (roomName) {
     let infoBox = document.getElementById("roomInfo");
 
     infoBox.innerHTML = `
@@ -134,87 +137,88 @@ function selectLocation(buildingId, lat, lng, buildingName, roomName, floor, ins
         </div>
     `;
     console.log("SELECTED:", buildingName, roomName, lat, lng);
-}
+  }
 
-    markersLayer.clearLayers();
+  markersLayer.clearLayers();
 
-    L.marker([lat, lng])
-        .addTo(markersLayer)
-        .bindPopup(`
+  L.marker([lat, lng])
+    .addTo(markersLayer)
+    .bindPopup(
+      `
             <b>${displayName}</b>
-            ${floor ? `<br>Floor: ${floor}` : ''}
-        `)
-        .openPopup();
+            ${floor ? `<br>Floor: ${floor}` : ""}
+        `,
+    )
+    .openPopup();
 
-    map.setView([lat, lng], 18);
+  map.setView([lat, lng], 18);
 
-    getUserLocation((userLat, userLng) => {
-        getRoute(userLat, userLng, lat, lng);
-    });
+  getUserLocation((userLat, userLng) => {
+    getRoute(userLat, userLng, lat, lng);
+  });
 
-    saveRecent({
-        buildingId,
-        name: buildingName,
-        lat,
-        lng,
-        roomName,
-        floor
-    });
+  saveRecent({
+    buildingId,
+    name: buildingName,
+    lat,
+    lng,
+    roomName,
+    floor,
+  });
 
-    selectedRoomInstructions = instructions;
-    selectedFloor = floor;
-    selectedBuilding = buildingName;
+  selectedRoomInstructions = instructions;
+  selectedFloor = floor;
+  selectedBuilding = buildingName;
 }
 
 // USER LOCATION
 function getUserLocation(callback) {
-    navigator.geolocation.getCurrentPosition(pos => {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      let [lat, lng] = smoothPosition(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
 
-        let [lat, lng] = smoothPosition(
-            pos.coords.latitude,
-            pos.coords.longitude
-        );
-
-        updateUserLocation(lat, lng, pos.coords.accuracy);
-        callback(lat, lng);
-
-    }, () => alert("Enable location"));
+      updateUserLocation(lat, lng, pos.coords.accuracy);
+      callback(lat, lng);
+    },
+    () => alert("Enable location"),
+  );
 }
 
 function updateUserLocation(lat, lng, accuracy) {
+  if (userMarker) map.removeLayer(userMarker);
+  if (accuracyCircle) map.removeLayer(accuracyCircle);
 
-    if (userMarker) map.removeLayer(userMarker);
-    if (accuracyCircle) map.removeLayer(accuracyCircle);
+  userMarker = L.circleMarker([lat, lng], {
+    radius: 8,
+    color: "#2563eb",
+    fillColor: "#3b82f6",
+    fillOpacity: 1,
+  }).addTo(map);
 
-    userMarker = L.circleMarker([lat, lng], {
-        radius: 8,
-        color: '#2563eb',
-        fillColor: '#3b82f6',
-        fillOpacity: 1
-    }).addTo(map);
-
-    accuracyCircle = L.circle([lat, lng], {
-        radius: accuracy,
-        color: '#3b82f6',
-        fillOpacity: 0.1
-    }).addTo(map);
+  accuracyCircle = L.circle([lat, lng], {
+    radius: accuracy,
+    color: "#3b82f6",
+    fillOpacity: 0.1,
+  }).addTo(map);
 }
 
 // SMOOTH GPS
 function smoothPosition(newLat, newLng) {
-
-    if (!lastPosition) {
-        lastPosition = [newLat, newLng];
-        return lastPosition;
-    }
-
-    const alpha = 0.2;
-
-    let lat = lastPosition[0] + alpha * (newLat - lastPosition[0]);
-    let lng = lastPosition[1] + alpha * (newLng - lastPosition[1]);
-
-    lastPosition = [lat, lng];
+  if (!lastPosition) {
+    lastPosition = [newLat, newLng];
     return lastPosition;
+  }
+
+  const alpha = 0.2;
+
+  let lat = lastPosition[0] + alpha * (newLat - lastPosition[0]);
+  let lng = lastPosition[1] + alpha * (newLng - lastPosition[1]);
+
+  lastPosition = [lat, lng];
+  return lastPosition;
 }
 
 // ROUTING
@@ -222,284 +226,286 @@ function smoothPosition(newLat, newLng) {
 let routeCache = {};
 
 function getRoute(startLat, startLng, endLat, endLng) {
-    let key = `${startLat},${startLng}-${endLat},${endLng}`;
+  let key = `${startLat},${startLng}-${endLat},${endLng}`;
 
-    if (routeCache[key]) {
-        currentRoutes = routeCache[key];
-        renderRoutes();
-        openDirectionsPanel();
-        return;
-    }
+  if (routeCache[key]) {
+    currentRoutes = routeCache[key];
+    renderRoutes();
+    openDirectionsPanel();
+    return;
+  }
 
-    document.getElementById("etaBox").innerText = "Calculating route...";
+  document.getElementById("etaBox").innerText = "Calculating route...";
 
-    fetch(`https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&overview=full`)
-        .then(res => res.json())
-        .then(data => {
-            routeCache[key] = data.routes;
-            currentRoutes = data.routes;
-            renderRoutes();
-            openDirectionsPanel();
-        });
+  fetch(
+    `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&overview=full`,
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      routeCache[key] = data.routes;
+      currentRoutes = data.routes;
+      renderRoutes();
+      openDirectionsPanel();
+    });
 }
 
 function calculateRoute(userLat, userLng, destLat, destLng) {
+  const distance = getDistance(userLat, userLng, destLat, destLng);
 
-    const distance = getDistance(userLat, userLng, destLat, destLng);
-
-    // if close → draw straight line
-    if (distance < 300) { // meters
-        drawDirectLine(userLat, userLng, destLat, destLng);
-    } else {
-        drawOSRMRoute(userLat, userLng, destLat, destLng);
-    }
+  // if close → draw straight line
+  if (distance < 300) {
+    // meters
+    drawDirectLine(userLat, userLng, destLat, destLng);
+  } else {
+    drawOSRMRoute(userLat, userLng, destLat, destLng);
+  }
 }
 
 function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3;
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
+  const R = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-        Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
 
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 function drawDirectLine(lat1, lng1, lat2, lng2) {
-    L.polyline([[lat1, lng1], [lat2, lng2]], {
-        color: 'green',
-        weight: 5
-    }).addTo(map);
+  L.polyline(
+    [
+      [lat1, lng1],
+      [lat2, lng2],
+    ],
+    {
+      color: "green",
+      weight: 5,
+    },
+  ).addTo(map);
 }
-
 
 // DRAW ROUTES
 function renderRoutes() {
+  routeLayers.forEach((l) => map.removeLayer(l));
+  routeLayers = [];
 
-    routeLayers.forEach(l => map.removeLayer(l));
-    routeLayers = [];
+  const optionsDiv = document.getElementById("routeOptions");
+  optionsDiv.innerHTML = "";
 
-    const optionsDiv = document.getElementById("routeOptions");
-    optionsDiv.innerHTML = "";
+  currentRoutes.forEach((route, index) => {
+    let coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
 
-    currentRoutes.forEach((route, index) => {
+    let layer = L.polyline(coords, {
+      color: index === 0 ? "green" : "gray",
+      weight: 5,
+    }).addTo(map);
 
-        let coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+    routeLayers.push(layer);
 
-        let layer = L.polyline(coords, {
-            color: index === 0 ? 'green' : 'gray',
-            weight: 5
-        }).addTo(map);
+    // ✅ REALISTIC ETA
+    let duration = Math.round(route.distance / WALKING_SPEED / 60);
+    let distance = (route.distance / 1000).toFixed(2);
 
-        routeLayers.push(layer);
+    let btn = document.createElement("div");
+    btn.className = "p-2 border rounded cursor-pointer";
 
-        // ✅ REALISTIC ETA
-        let duration = Math.round(route.distance / WALKING_SPEED / 60);
-        let distance = (route.distance / 1000).toFixed(2);
-
-        let btn = document.createElement("div");
-        btn.className = "p-2 border rounded cursor-pointer";
-
-        btn.innerHTML = `
+    btn.innerHTML = `
             <div>Route ${index + 1}</div>
             <div class="text-sm">${duration} min • ${distance} km</div>
         `;
 
-        btn.onclick = () => selectRoute(index);
-        optionsDiv.appendChild(btn);
-    });
+    btn.onclick = () => selectRoute(index);
+    optionsDiv.appendChild(btn);
+  });
 
-    map.fitBounds(routeLayers[0].getBounds());
-    updateETA(0);
+  map.fitBounds(routeLayers[0].getBounds());
+  updateETA(0);
 }
 
 // SELECT ROUTE
 function selectRoute(index) {
+  selectedRouteIndex = index;
 
-    selectedRouteIndex = index;
+  routeLayers.forEach((l, i) => {
+    l.setStyle({ color: i === index ? "green" : "gray" });
+  });
 
-    routeLayers.forEach((l, i) => {
-        l.setStyle({ color: i === index ? 'green' : 'gray' });
-    });
-
-    updateETA(index);
+  updateETA(index);
 }
 
 // ETA
 function updateETA(index) {
+  let route = currentRoutes[index];
 
-    let route = currentRoutes[index];
+  let duration = Math.round(route.distance / WALKING_SPEED / 60);
+  let distance = (route.distance / 1000).toFixed(2);
 
-    let duration = Math.round(route.distance / WALKING_SPEED / 60);
-    let distance = (route.distance / 1000).toFixed(2);
-
-    document.getElementById("etaBox").innerText =
-        `🚶 ${duration} min (${distance} km)`;
+  document.getElementById("etaBox").innerText =
+    `🚶 ${duration} min (${distance} km)`;
 }
 
 // VOICE NAVIGATION
 function speak(text) {
+  if (!("speechSynthesis" in window)) {
+    console.warn("Speech not supported");
+    return;
+  }
 
-    if (!('speechSynthesis' in window)) {
-        console.warn("Speech not supported");
-        return;
-    }
+  window.speechSynthesis.cancel(); // 🔥 prevents stacking
 
-    window.speechSynthesis.cancel(); // 🔥 prevents stacking
+  let speech = new SpeechSynthesisUtterance(text);
+  speech.lang = "en-US";
+  speech.rate = 1;
 
-    let speech = new SpeechSynthesisUtterance(text);
-    speech.lang = "en-US";
-    speech.rate = 1;
-
-    window.speechSynthesis.speak(speech);
+  window.speechSynthesis.speak(speech);
 }
 
 // PANEL CONTROL
 function openDirectionsPanel() {
-    document.getElementById("directionsPanel").classList.remove("hidden");
+  document.getElementById("directionsPanel").classList.remove("hidden");
 }
 
 function closeDirections() {
-    document.getElementById("directionsPanel").classList.add("hidden");
+  document.getElementById("directionsPanel").classList.add("hidden");
 }
 
 // START NAVIGATION
 document.getElementById("startNavBtn").onclick = function () {
+  if (!currentRoutes.length) return;
 
-    if (!currentRoutes.length) return;
+  // RESUME
+  if (navigationPaused) {
+    navigating = true;
+    navigationPaused = false;
 
-    // RESUME
-    if (navigationPaused) {
-        navigating = true;
-        navigationPaused = false;
+    speak("Navigation resumed");
+    startLiveTracking();
 
-        speak("Navigation resumed");
-        startLiveTracking();
+    this.innerText = "Stop Navigation";
+    return;
+  }
 
-        this.innerText = "Stop Navigation";
-        return;
-    }
+  // START
+  if (!navigating) {
+    navigating = true;
 
-    // START
-    if (!navigating) {
-        navigating = true;
+    steps = currentRoutes[selectedRouteIndex].legs[0].steps;
+    currentStepIndex = 0;
+    lastSpokenStep = -1;
 
-        steps = currentRoutes[selectedRouteIndex].legs[0].steps;
-        currentStepIndex = 0;
-        lastSpokenStep = -1;
+    speak("Navigation started");
+    startLiveTracking();
 
-        speak("Navigation started");
-        startLiveTracking();
+    this.innerText = "Stop Navigation";
+    return;
+  }
 
-        this.innerText = "Stop Navigation";
-        return;
-    }
-
-    // STOP
-    stopNavigation();
+  // STOP
+  stopNavigation();
 };
 
 // LIVE TRACKING
 
 function startLiveTracking() {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
 
-    if (watchId) navigator.geolocation.clearWatch(watchId);
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      let [lat, lng] = smoothPosition(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
 
-    watchId = navigator.geolocation.watchPosition(pos => {
+      updateUserLocation(lat, lng, pos.coords.accuracy);
 
-        let [lat, lng] = smoothPosition(
-            pos.coords.latitude,
-            pos.coords.longitude
-        );
+      if (!navigating || !destination || !steps.length) return;
 
-        updateUserLocation(lat, lng, pos.coords.accuracy);
+      let userPos = L.latLng(lat, lng);
 
-        if (!navigating || !destination || !steps.length) return;
+      // ARRIVAL CHECK
+      let dest = L.latLng(destination.lat, destination.lng);
+      let distToDest = userPos.distanceTo(dest);
 
-        let userPos = L.latLng(lat, lng);
+      if (distToDest < arrivalThreshold) {
+        speak("You have arrived at your destination");
+        stopNavigation();
+        showRoomGuidance();
+        return;
+      }
 
+      // CURRENT STEP
+      let step = steps[currentStepIndex];
+      let stepCoords = step.geometry.coordinates;
+      let nextPoint = L.latLng(
+        stepCoords[stepCoords.length - 1][1],
+        stepCoords[stepCoords.length - 1][0],
+      );
 
-        // ARRIVAL CHECK
-        let dest = L.latLng(destination.lat, destination.lng);
-        let distToDest = userPos.distanceTo(dest);
+      let distToStep = userPos.distanceTo(nextPoint);
 
-        if (distToDest < arrivalThreshold) {
-            speak("You have arrived at your destination");
-            stopNavigation();
-            showRoomGuidance();
-            return;
-        }
+      // VOICE TRIGGER
+      if (distToStep < 15 && currentStepIndex !== lastSpokenStep) {
+        speak(step.maneuver.instruction);
+        lastSpokenStep = currentStepIndex;
 
-        // CURRENT STEP
-        let step = steps[currentStepIndex];
-        let stepCoords = step.geometry.coordinates;
-        let nextPoint = L.latLng(stepCoords[stepCoords.length - 1][1], stepCoords[stepCoords.length - 1][0]);
+        currentStepIndex++;
+      }
 
-        let distToStep = userPos.distanceTo(nextPoint);
+      // SMART REROUTE
+      let routeLine = routeLayers[selectedRouteIndex];
+      let closest = routeLine.getLatLngs().reduce((prev, curr) => {
+        return userPos.distanceTo(curr) < userPos.distanceTo(prev)
+          ? curr
+          : prev;
+      });
 
-        // VOICE TRIGGER
-        if (distToStep < 15 && currentStepIndex !== lastSpokenStep) {
+      let deviation = userPos.distanceTo(closest);
 
-            speak(step.maneuver.instruction);
-            lastSpokenStep = currentStepIndex;
+      if (deviation > 50) {
+        document.getElementById("rerouteNotice").classList.remove("hidden");
 
-            currentStepIndex++;
-        }
+        getRoute(lat, lng, destination.lat, destination.lng);
 
-        // SMART REROUTE
-        let routeLine = routeLayers[selectedRouteIndex];
-        let closest = routeLine.getLatLngs().reduce((prev, curr) => {
-            return userPos.distanceTo(curr) < userPos.distanceTo(prev) ? curr : prev;
-        });
+        setTimeout(() => {
+          document.getElementById("rerouteNotice").classList.add("hidden");
+        }, 1500);
+      }
+      let lastRerouteTime = 0;
 
-        let deviation = userPos.distanceTo(closest);
-
-        if (deviation > 50) {
-
-            document.getElementById("rerouteNotice").classList.remove("hidden");
-
-            getRoute(lat, lng, destination.lat, destination.lng);
-
-            setTimeout(() => {
-                document.getElementById("rerouteNotice").classList.add("hidden");
-            }, 1500);
-        }
-        let lastRerouteTime = 0;
-
-        if (deviation > 50 && Date.now() - lastRerouteTime > 5000) {
-            lastRerouteTime = Date.now();
-            getRoute(lat, lng, destination.lat, destination.lng);
-        }
-
-    }, null, { enableHighAccuracy: true });
+      if (deviation > 50 && Date.now() - lastRerouteTime > 5000) {
+        lastRerouteTime = Date.now();
+        getRoute(lat, lng, destination.lat, destination.lng);
+      }
+    },
+    null,
+    { enableHighAccuracy: true },
+  );
 }
 
-function stopNavigation(){
+function stopNavigation() {
+  navigating = false;
+  navigationPaused = true;
 
-    navigating = false;
-    navigationPaused = true;
+  //Stop GPS Tracking
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
 
-    //Stop GPS Tracking
-    if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-    }
+  //Stop Voice Assistant
+  window.speechSynthesis.cancel();
 
-    //Stop Voice Assistant
-    window.speechSynthesis.cancel();
-
-    document.getElementById("startNavBtn").innerText = "Resume Navigation";
+  document.getElementById("startNavBtn").innerText = "Resume Navigation";
 }
 
 function showRoomGuidance() {
+  let infoBox = document.getElementById("roomInfo");
 
-    let infoBox = document.getElementById("roomInfo");
-
-    infoBox.innerHTML = `
+  infoBox.innerHTML = `
         <div class="p-4 bg-white border rounded-lg shadow-lg mt-2">
 
             <h3 class="font-bold text-lg text-green-700">
@@ -532,34 +538,34 @@ function showRoomGuidance() {
 
 // RECENTS
 function saveRecent(place) {
+  let recents = JSON.parse(localStorage.getItem("recentSearches")) || [];
 
-    let recents = JSON.parse(localStorage.getItem("recentSearches")) || [];
+  recents = recents.filter((r) => r.name !== place.name);
 
-    recents = recents.filter(r => r.name !== place.name);
+  recents.unshift({
+    buildingId: place.buildingId || null,
+    name: place.name,
+    lat: place.lat,
+    lng: place.lng,
+    roomName: place.roomName || "",
+    floor: place.floor || "",
+  });
+  recents = recents.slice(0, 5);
 
-    recents.unshift({
-        buildingId: place.buildingId || null,
-        name: place.name,
-        lat: place.lat,
-        lng: place.lng,
-        roomName: place.roomName || '',
-        floor: place.floor || ''
-    });
-    recents = recents.slice(0, 5);
+  localStorage.setItem("recentSearches", JSON.stringify(recents));
 
-    localStorage.setItem("recentSearches", JSON.stringify(recents));
-
-    renderRecents();
+  renderRecents();
 }
 
 function renderRecents() {
+  let recents = JSON.parse(localStorage.getItem("recentSearches")) || [];
+  let container = document.getElementById("recentList");
 
-    let recents = JSON.parse(localStorage.getItem("recentSearches")) || [];
-    let container = document.getElementById("recentList");
+  if (!container) return;
 
-    if (!container) return;
-
-    container.innerHTML = recents.map(r => `
+  container.innerHTML = recents
+    .map(
+      (r) => `
         <div class="p-2 hover:bg-gray-100 cursor-pointer"
             onclick="selectLocation(
                 ${r.buildingId},
@@ -572,52 +578,57 @@ function renderRecents() {
             )">
             <div class="font-medium">${r.name}</div>
             <div class="text-sm text-gray-500">
-                ${r.roomName ? `Room • Floor ${r.floor}` : 'Building'}
+                ${r.roomName ? `Room • Floor ${r.floor}` : "Building"}
             </div>
         </div>
-    `).join('');
+    `,
+    )
+    .join("");
 }
 
 renderRecents();
 
 // RESET
 function resetMap() {
+  map.setView([-4.0385, 39.668], 16);
 
-    map.setView([-4.0385, 39.6680], 16);
+  markersLayer.clearLayers();
 
-    markersLayer.clearLayers();
+  routeLayers.forEach((l) => map.removeLayer(l));
+  routeLayers = [];
 
-    routeLayers.forEach(l => map.removeLayer(l));
-    routeLayers = [];
+  currentRoutes = [];
+  selectedRouteIndex = 0;
+  destination = null;
 
-    currentRoutes = [];
-    selectedRouteIndex = 0;
-    destination = null;
+  document.getElementById("routeOptions").innerHTML = "";
+  document.getElementById("etaBox").innerText = "";
 
-    document.getElementById("routeOptions").innerHTML = "";
-    document.getElementById("etaBox").innerText = "";
+  closeDirections();
 
-    closeDirections();
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
 
-    if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-    }
+  if (userMarker) map.removeLayer(userMarker);
+  if (accuracyCircle) map.removeLayer(accuracyCircle);
 
-    if (userMarker) map.removeLayer(userMarker);
-    if (accuracyCircle) map.removeLayer(accuracyCircle);
+  userMarker = null;
+  accuracyCircle = null;
 
-    userMarker = null;
-    accuracyCircle = null;
-
-    let reroute = document.getElementById("rerouteNotice");
-    if (reroute) reroute.classList.add("hidden");
+  let reroute = document.getElementById("rerouteNotice");
+  if (reroute) reroute.classList.add("hidden");
 }
 
-L.control.zoom({
-    position: 'bottomright'
-}).addTo(map);
+L.control
+  .zoom({
+    position: "bottomright",
+  })
+  .addTo(map);
 
-L.control.locate({
-    position: 'bottomright'
-}).addTo(map);
+L.control
+  .locate({
+    position: "bottomright",
+  })
+  .addTo(map);

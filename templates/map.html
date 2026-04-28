@@ -8,7 +8,7 @@
     <div id="map" class="w-full h-full rounded-lg shadow z-0"></div>
 
     <!-- CONTROLS -->
-    <div class="absolute top-4 left-4 right-4 z-[1100] flex gap-2 items-center">
+    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-[90%] md:w-[60%] z-[1100] flex gap-2">
 
         <div class="relative flex-1">
             <input type="text" id="searchInput"
@@ -29,7 +29,7 @@
 
     <!-- RECENTS -->
     <div id="recentsPanel"
-         class="absolute top-20 left-4 w-64 bg-white shadow-lg rounded-lg p-3 z-[1100] max-h-60 overflow-y-auto">
+         class="absolute top-20 right-4 w-64 bg-white shadow-lg rounded-lg p-3 z-[1100] max-h-60 overflow-y-auto">
 
         <h4 class="text-sm font-semibold mb-2">Recent</h4>
         <div id="recentList"></div>
