@@ -11,13 +11,13 @@
 
 <body class="bg-gray-100">
 
-<div class="flex">
+<div class="flex min-h-screen">
 
     {% if current_user.is_authenticated %}
 
     <!-- SIDEBAR -->
     <div id="sidebar"
-         class="bg-green-700 text-white h-screen w-64 p-5 fixed transition-all duration-300">
+        class="bg-green-700 text-white fixed md:relative h-screen z-50">
 
         <button onclick="toggleSidebar()" class="mb-6">
             ☰
@@ -41,20 +41,23 @@
                 </span>
 
                 {% if current_user.role == 'admin' %}
-                    <a href="/admin">Admin</a>
+                    <span class="label">
+                        <a href="/admin">Admin</a>
+                    </span>
                 {% endif %}
+
+                <span class="label">
+                    <a href="/logout" class="absolute bottom-5">Logout</a>
+                </span>
             </nav>
         </div>
-        <span class="label">
-            <a href="/logout" class="absolute bottom-5">Logout</a>
-        </span>
 
     </div>
 
     {% endif %}
 
     <!-- MAIN -->
-    <div id="mainContent" class="flex-1 ml-64 p-6 transition-all duration-300">
+    <div id="mainContent"  class="flex-1 w-full p-4 md:ml-64">
         {% block content %}{% endblock %}
     </div>
 
@@ -72,18 +75,27 @@ function toggleSidebar() {
 </script>
 
 <style>
-#sidebar {
-    inline-size: 250px;
-    transition: all 0.3s;
-}
+    #sidebar {
+        position: fixed;
+        inline-size: 250px;
+        transition: all 0.3s;
+    }
 
-#sidebar.collapsed {
-    inline-size: 70px;
-}
+    #sidebar.active {
+        inset-inline-start: 0;
+    }
 
-#sidebar.collapsed .text,
-#sidebar.collapsed .label {
-    display: none;
-}
+    #sidebar.collapsed {
+        inline-size: 70px;
+    }
+
+    #sidebar.collapsed .text,
+
+    #sidebar.collapsed .label {
+        display: none;
+    }
+    #mainContent {
+        margin-inline-start: 0 !important;
+    }
 </style>
 </body>
