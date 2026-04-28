@@ -11,110 +11,83 @@
 
 <body class="bg-gray-100">
 
-<div class="flex min-h-screen">
+{% if 'user_id' in session %}
+<button onclick="toggleSidebar()"
+        class="fixed top-4 left-4 z-[3000] bg-green-700 text-white px-3 py-2 rounded-lg shadow md:hidden">
+    ☰
+</button>
+{% endif %}
+
+<div class="min-h-screen">
 
     {% if 'user_id' in session %}
 
     <!-- SIDEBAR -->
-    <div id="sidebar"
-        class="fixed top-0 left-0 h-screen w-64 bg-green-700 text-white z-[2000] transform -translate-x-full md:translate-x-0 transition">
+    <aside id="sidebar"
+           class="fixed top-0 left-0 h-screen w-64 bg-green-700 text-white z-[2500]
+                  transform -translate-x-full md:translate-x-0 transition-transform duration-300">
 
-        <button onclick="toggleSidebar()"
-            class="fixed top-4 left-4 z-[2100] bg-green-700 text-white p-2 rounded shadow">
-        ☰
-        </button><br><br>
+        <div class="p-5 pt-16 md:pt-5 flex flex-col h-full">
 
+            <div class="mb-6">
+                <h1 class="font-bold text-lg">TUM Locator</h1>
+                <p class="text-sm mt-3">{{ current_user.username }}</p>
+                <p class="text-xs text-green-100 break-all">{{ current_user.email }}</p>
+            </div>
 
-        <div id="sidebarContent" class="p-3 space-y-3">
-            <span class="label">
-                <p class="text-sm">{{ current_user.username }}</p><br>
-            </span>
+            <nav class="flex flex-col gap-2 text-sm">
+                <a href="/map" class="px-3 py-2 rounded hover:bg-green-800">Map</a>
+                <a href="/account" class="px-3 py-2 rounded hover:bg-green-800">Account</a>
+                <a href="/recents" class="px-3 py-2 rounded hover:bg-green-800">Recents</a>
 
-            <span class="label">
-                <p class="text-sm">{{ current_user.email }}</p><br>
-            </span>
+                {% if current_user.role == 'admin' %}
+                    <a href="/admin" class="px-3 py-2 rounded hover:bg-green-800">Admin Dashboard</a>
+                    <a href="/manage_users" class="px-3 py-2 rounded hover:bg-green-800">Manage Users</a>
+                {% endif %}
+            </nav>
 
-            <span class="label">
-                <a href="/map">Map</a><br><br>
-            </span>
-            <span class="label">
-                <a href="/account">Account</a><br><br>
-            </span>
-            <span class="label">
-                <a href="/recents">Recents</a><br><br>
-            </span>
-
-            {% if current_user.role == 'admin' %}
-                <span class="label">
-                    <a href="/admin">Admin</a><br><br>
-                </span>
-                <span class="label">
-                    <a href="/manage_users">Manage Users</a><br><br>
-                </span>
-            {% endif %}
-
-            <span class="label">
-                <a href="/logout">Logout</a><br><br>
-            </span>
+            <div class="mt-auto">
+                <a href="/logout" class="block px-3 py-2 rounded hover:bg-red-600">Logout</a>
+            </div>
 
         </div>
+    </aside>
 
-    </div>
+    <!-- MOBILE OVERLAY -->
+    <div id="sidebarOverlay"
+         onclick="toggleSidebar()"
+         class="hidden fixed inset-0 bg-black bg-opacity-40 z-[2400] md:hidden"></div>
 
     {% endif %}
 
     <!-- MAIN -->
-    <div id="mainContent"
-        class="flex-1 ml-0 md:ml-64 transition-all duration-300">
+    <main id="mainContent"
+          class="{% if 'user_id' in session %}md:ml-64{% endif %} min-h-screen transition-all duration-300">
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
 </div>
 
 <script>
-let collapsed = false;
-
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    const main = document.getElementById('mainContent');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (!sidebar) return;
 
     sidebar.classList.toggle('-translate-x-full');
 
-    if (window.innerWidth >= 768) {
-        main.classList.toggle('ml-64');
+    if (overlay) {
+        overlay.classList.toggle('hidden');
     }
-}
 
-document.addEventListener("DOMContentLoaded", () => {
-    const sidebar = document.getElementById('sidebar');
-    if (window.innerWidth < 768) {
-        sidebar.classList.add('collapsed');
-    }
-});
+    setTimeout(() => {
+        if (window.map) {
+            window.map.invalidateSize();
+        }
+    }, 350);
+}
 </script>
 
-<style>
-    #sidebar {
-        position: fixed;
-        inline-size: 250px;
-        transition: all 0.3s;
-    }
-
-    #sidebar.active {
-        inset-inline-start: 0;
-    }
-
-    #sidebar.collapsed {
-        inline-size: 70px;
-    }
-
-    #sidebar.collapsed .text,
-
-    #sidebar.collapsed .label {
-        display: none;
-    }
-    #mainContent {
-        margin-inline-start: 0 !important;
-    }
-</style>
 </body>
+</html>
