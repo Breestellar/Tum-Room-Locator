@@ -340,9 +340,42 @@ function getRouteSmart(startLat, startLng, endLat, endLng, timeout = null) {
   if (distance <= 250) {
     if (timeout) clearTimeout(timeout);
     drawDirectRoute(startLat, startLng, endLat, endLng, distance);
-  } else {
-    getRoute(startLat, startLng, endLat, endLng, timeout);
+    return;
   }
+
+  if (distance > 1000) {
+    if (timeout) clearTimeout(timeout);
+    showExternalRouteOption(startLat, startLng, endLat, endLng, distance);
+    return;
+  }
+
+  getRoute(startLat, startLng, endLat, endLng, timeout);
+}
+
+function showExternalRouteOption(startLat, startLng, endLat, endLng, distance) {
+  const walkingMinutes = Math.round(distance / WALKING_SPEED / 60);
+  const km = (distance / 1000).toFixed(2);
+
+  document.getElementById("routeOptions").innerHTML = `
+    <div class="p-3 border rounded-lg bg-green-50">
+      <div class="font-semibold">Long-distance route</div>
+      <div class="text-sm text-gray-600">${walkingMinutes} min • ${km} km estimated walk</div>
+      <p class="text-xs text-gray-500 mt-2">
+        This location is far from campus. Open Google Maps for accurate road directions.
+      </p>
+
+      <a target="_blank"
+         href="https://www.google.com/maps/dir/${startLat},${startLng}/${endLat},${endLng}"
+         class="block mt-3 bg-green-600 text-white text-center py-2 rounded-lg">
+         Open in Google Maps
+      </a>
+    </div>
+  `;
+
+  document.getElementById("etaBox").innerText =
+    `Estimated walking time: ${walkingMinutes} min (${km} km)`;
+
+  openDirectionsPanel();
 }
 
 // DISTANCE
