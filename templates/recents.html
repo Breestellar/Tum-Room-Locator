@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="p-4">
+
+    <h2 class="text-xl font-bold mb-4">Recent Locations</h2>
+
+    <div id="recentList" class="space-y-3"></div>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const recents = JSON.parse(localStorage.getItem("recents")) || [];
+    const list = document.getElementById("recentList");
+
+    recents.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "p-3 bg-white shadow rounded";
+
+        div.innerHTML = `
+            <h4 class="font-semibold">${item.name}</h4>
+            <p class="text-sm text-gray-500">${item.type}</p>
+        `;
+
+        list.appendChild(div);
+    });
+});
+</script>
+
+{% endblock %}

@@ -602,6 +602,12 @@ def api_rooms(building_id):
 
     return jsonify(rooms)
 
+#-------------------------- RECENTS PAGE --------------------------#
+@app.route('/recents')
+def recents():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('recents.html')
 
 #------------------- RUN APP -------------------#
 
