@@ -2,40 +2,63 @@
 
 {% block content %}
 
-<div class="relative flex w-full h-screen">
+<div class="relative w-full h-screen overflow-hidden">
 
     <!-- MAP -->
     <div id="map" class="w-full h-full z-0"></div>
 
-    <!-- CONTROLS -->
-    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-[90%] md:w-[60%] z-[1100] flex gap-2">
+    <!-- SEARCH CONTROLS -->
+    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-[92%] md:w-[60%] z-[1100] flex gap-2">
 
         <div class="relative flex-1">
             <input type="text" id="searchInput"
                    placeholder="Search building or room..."
-                   class="border p-2 rounded w-full shadow">
+                   class="border p-3 rounded-lg w-full shadow bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
 
             <div id="suggestions"
-                 class="absolute w-full bg-white border rounded shadow mt-1 hidden z-[1200] max-h-60 overflow-y-auto">
+                 class="absolute w-full bg-white border rounded-lg shadow mt-1 hidden z-[1200] max-h-64 overflow-y-auto">
             </div>
         </div>
 
         <button onclick="resetMap()"
-            class="bg-orange-500 text-white px-4 py-2 rounded shadow">
+            class="bg-orange-500 text-white px-4 py-2 rounded-lg shadow hover:bg-orange-600">
             Reset
         </button>
 
-    </div> 
+    </div>
 
-    <!-- ROOM INFO -->
+    <!-- INFO CARD -->
+    <div id="placeInfoPanel"
+         class="hidden fixed bottom-0 left-0 right-0 bg-white shadow-2xl rounded-t-2xl p-5 z-[1300]
+                md:absolute md:top-24 md:left-6 md:bottom-auto md:right-auto md:w-80 md:rounded-xl">
+
+        <h2 id="placeTitle" class="text-xl font-bold text-gray-800"></h2>
+        <p id="placeType" class="text-sm text-gray-500 mt-1"></p>
+
+        <div id="placeDetails" class="text-sm text-gray-600 mt-3 space-y-1"></div>
+
+        <div class="mt-5 grid grid-cols-2 gap-3">
+            <button onclick="showDirectionsForSelectedPlace()"
+                    class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                Directions
+            </button>
+
+            <button onclick="closePlaceInfo()"
+                    class="bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- ROOM ARRIVAL INFO -->
     <div id="roomInfo"
-         class="absolute top-32 left-4 w-64 z-[1100]"></div>
+         class="absolute top-32 left-4 w-72 z-[1100]"></div>
 
 </div>
 
 <!-- DIRECTIONS PANEL -->
 <div id="directionsPanel"
-     class="fixed bottom-0 left-0 w-full bg-white shadow-lg rounded-t-xl p-4 z-[1200] hidden
+     class="fixed bottom-0 left-0 w-full bg-white shadow-lg rounded-t-xl p-4 z-[1400] hidden
             md:top-0 md:right-0 md:left-auto md:h-full md:w-96 md:rounded-none">
 
     <div class="flex justify-between items-center mb-3">
@@ -46,12 +69,10 @@
     <div id="routeOptions" class="space-y-2 mb-4"></div>
     <div id="etaBox" class="text-sm text-gray-600 mb-4"></div>
 
-    <div class="flex gap-2">
-        <button id="startNavBtn"
-            class="bg-green-600 text-white px-4 py-2 rounded w-full">
-            Start
-        </button>
-    </div>
+    <button id="startNavBtn"
+        class="bg-green-600 text-white px-4 py-2 rounded-lg w-full hover:bg-green-700">
+        Start Navigation
+    </button>
 
     <div id="rerouteNotice"
         class="hidden text-orange-500 text-sm mt-2">
