@@ -24,20 +24,30 @@
         </button>
 
         <div id="sidebarContent">
-            <p class="font-semibold">{{ current_user.username }}</p>
-            <p class="text-xs text-gray-200 mb-6">{{ current_user.email }}</p>
+            <span class="label">
+                <p class="font-semibold">{{ current_user.username }}</p>
+            </span>
+
+            <span class="label">
+                <p class="text-xs text-gray-200 mb-6">{{ current_user.email }}</p>
+            </span>
 
             <nav class="flex flex-col gap-3">
-                <a href="/map">Map</a>
-                <a href="/account">Account</a>
+                <span class="label">
+                    <a href="/map">Map</a>
+                </span>
+                <span class="label">
+                    <a href="/account">Account</a>
+                </span>
 
                 {% if current_user.role == 'admin' %}
                     <a href="/admin">Admin</a>
                 {% endif %}
             </nav>
         </div>
-
-        <a href="/logout" class="absolute bottom-5">Logout</a>
+        <span class="label">
+            <a href="/logout" class="absolute bottom-5">Logout</a>
+        </span>
 
     </div>
 
@@ -57,16 +67,23 @@ function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const content = document.getElementById('mainContent');
 
-    if (!collapsed) {
-        sidebar.style.width = '70px';
-        content.style.marginLeft = '70px';
-    } else {
-        sidebar.style.width = '256px';
-        content.style.marginLeft = '256px';
-    }
-
-    collapsed = !collapsed;
+    sidebar.classList.toggle('collapsed');
 }
 </script>
 
+<style>
+#sidebar {
+    inline-size: 250px;
+    transition: all 0.3s;
+}
+
+#sidebar.collapsed {
+    inline-size: 70px;
+}
+
+#sidebar.collapsed .text,
+#sidebar.collapsed .label {
+    display: none;
+}
+</style>
 </body>
