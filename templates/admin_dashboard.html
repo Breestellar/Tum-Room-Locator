@@ -128,6 +128,11 @@
                             View
                         </a>
 
+                        <a href="/admin/edit_building/{{ b.id }}"
+                            class="text-orange-600 text-sm hover:underline">
+                                Edit
+                        </a>
+
                         <form action="/admin/delete_building" method="POST"
                                 onsubmit="return confirm('Delete this building AND ALL its rooms? This cannot be undone.');">
 
@@ -141,6 +146,45 @@
             {% endfor %}
         </ul>
     </div>
+
+    <div class="mt-6 bg-white p-4 rounded shadow">
+    <h3 class="font-semibold mb-3">Rooms</h3>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left p-2">Room</th>
+                    <th class="text-left p-2">Floor</th>
+                    <th class="text-left p-2">Description</th>
+                    <th class="text-left p-2">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for r in rooms %}
+                <tr class="border-b">
+                    <td class="p-2">{{ r.name }}</td>
+                    <td class="p-2">{{ r.floor }}</td>
+                    <td class="p-2">{{ r.description }}</td>
+                    <td class="p-2 flex gap-3">
+                        <a href="/admin/edit_room/{{ r.id }}"
+                           class="text-orange-600 hover:underline">
+                            Edit
+                        </a>
+
+                        <form action="/admin/delete_room" method="POST"
+                              onsubmit="return confirm('Delete this room?');">
+                            <input type="hidden" name="id" value="{{ r.id }}">
+                            <button class="text-red-600 hover:underline">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
 </div>
 
