@@ -13,46 +13,50 @@
 
 <div class="flex min-h-screen">
 
-    {% if current_user.is_authenticated %}
+    {% if 'user_id' in session %}
 
     <!-- SIDEBAR -->
     <div id="sidebar"
-        class="bg-green-700 text-white fixed md:relative h-screen z-50">
+        class="fixed top-0 left-0 h-screen w-64 bg-green-700 text-white z-[2000] transform -translate-x-full md:translate-x-0 transition">
 
-        <button onclick="toggleSidebar()" class="mb-6">
-            ☰
-        </button>
+        <button onclick="toggleSidebar()"
+            class="fixed top-4 left-4 z-[2100] bg-green-700 text-white p-2 rounded shadow">
+        ☰
+        </button><br><br>
 
-        <div id="sidebarContent">
+
+        <div id="sidebarContent" class="p-3 space-y-3">
             <span class="label">
-                <p class="font-semibold">{{ current_user.username }}</p>
+                <p class="text-sm">{{ current_user.username }}</p><br>
             </span>
 
             <span class="label">
-                <p class="text-xs text-gray-200 mb-6">{{ current_user.email }}</p>
+                <p class="text-sm">{{ current_user.email }}</p><br>
             </span>
 
-            <nav class="flex flex-col gap-3">
-                <span class="label">
-                    <a href="/map">Map</a>
-                </span>
-                <span class="label">
-                    <a href="/account">Account</a>
-                </span>
-                <span class="label">
-                    <a href="/recents">Recents</a>
-                </span>
+            <span class="label">
+                <a href="/map">Map</a><br><br>
+            </span>
+            <span class="label">
+                <a href="/account">Account</a><br><br>
+            </span>
+            <span class="label">
+                <a href="/recents">Recents</a><br><br>
+            </span>
 
-                {% if current_user.role == 'admin' %}
-                    <span class="label">
-                        <a href="/admin">Admin</a>
-                    </span>
-                {% endif %}
-
+            {% if current_user.role == 'admin' %}
                 <span class="label">
-                    <a href="/logout">Logout</a>
+                    <a href="/admin">Admin</a><br><br>
                 </span>
-            </nav>
+                <span class="label">
+                    <a href="/manage_users">Manage Users</a><br><br>
+                </span>
+            {% endif %}
+
+            <span class="label">
+                <a href="/logout">Logout</a><br><br>
+            </span>
+
         </div>
 
     </div>
@@ -60,7 +64,8 @@
     {% endif %}
 
     <!-- MAIN -->
-    <div id="mainContent"  class="flex-1 p-4 md:ml-64">
+    <div id="mainContent"
+        class="flex-1 ml-0 md:ml-64 transition-all duration-300">
         {% block content %}{% endblock %}
     </div>
 
@@ -71,10 +76,21 @@ let collapsed = false;
 
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('mainContent');
+    const main = document.getElementById('mainContent');
 
-    sidebar.classList.toggle('collapsed');
+    sidebar.classList.toggle('-translate-x-full');
+
+    if (window.innerWidth >= 768) {
+        main.classList.toggle('ml-64');
+    }
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+    const sidebar = document.getElementById('sidebar');
+    if (window.innerWidth < 768) {
+        sidebar.classList.add('collapsed');
+    }
+});
 </script>
 
 <style>

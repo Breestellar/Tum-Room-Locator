@@ -620,15 +620,3 @@ function resetMap() {
   let reroute = document.getElementById("rerouteNotice");
   if (reroute) reroute.classList.add("hidden");
 }
-
-L.control
-  .zoom({
-    position: "bottomright",
-  })
-  .addTo(map);
-
-L.control
-  .locate({
-    position: "bottomright",
-  })
-  .addTo(map);

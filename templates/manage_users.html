@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto p-6">
+
+    <h2 class="text-2xl font-bold text-green-700 mb-6">
+        User Management
+    </h2>
+
+    <!-- STATS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+        <div class="bg-white p-4 rounded shadow text-center">
+            <p class="text-gray-500">Total Users</p>
+            <p class="text-xl font-bold">{{ total_users }}</p>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow text-center">
+            <p class="text-gray-500">Recent Signups</p>
+            <p class="text-xl font-bold">{{ recent_users|length }}</p>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow text-center">
+            <p class="text-gray-500">Popular Searches</p>
+            <p class="text-xl font-bold">{{ popular|length }}</p>
+        </div>
+
+    </div>
+
+    <!-- USERS TABLE -->
+    <div class="bg-white p-4 rounded shadow mb-6 overflow-x-auto">
+
+        <h3 class="font-semibold mb-3">All Users</h3>
+
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left p-2">ID</th>
+                    <th class="text-left p-2">Username</th>
+                    <th class="text-left p-2">Email</th>
+                    <th class="text-left p-2">Role</th>
+                    <th class="text-left p-2">Action</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for u in users %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-2">{{ u.id }}</td>
+                    <td class="p-2">{{ u.username }}</td>
+                    <td class="p-2">{{ u.email }}</td>
+                    <td class="p-2">
+                        <span class="px-2 py-1 rounded text-white
+                            {% if u.role == 'admin' %}bg-green-600{% else %}bg-gray-500{% endif %}">
+                            {{ u.role }}
+                        </span>
+                    </td>
+                    <td class="p-2 flex gap-2">
+
+                        <!-- Toggle Role -->
+                        <form action="/admin/toggle_role" method="POST">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <button class="text-blue-600 text-xs">Toggle Role</button>
+                        </form>
+
+                        <!-- Delete -->
+                        <form action="/admin/delete_user" method="POST"
+                              onsubmit="return confirm('Delete user?')">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <button class="text-red-600 text-xs">Delete</button>
+                        </form>
+
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+    <!-- POPULAR -->
+    <div class="bg-white p-4 rounded shadow">
+
+        <h3 class="font-semibold mb-3">Popular Locations</h3>
+
+        <ul class="space-y-2 text-sm">
+            {% for p in popular %}
+                <li class="flex justify-between border-b pb-1">
+                    <span>{{ p.location_name }}</span>
+                    <span class="font-bold">{{ p.count }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+
+    </div>
+
+</div>
+
+{% endblock %}

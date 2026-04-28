@@ -1,14 +1,11 @@
-import re, random, email, smtplib
-from click import confirm
+import re, random
 from datetime import datetime, timedelta
+from functools import wraps
 from db import get_db
 from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session
-from flask_login import login_required
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
-
-import db
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -17,8 +14,8 @@ app.secret_key = 'supersecretkey'
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'kausistella@gmail.com'
-app.config['MAIL_PASSWORD'] = 'erwa llfx ezyj khmp'
+app.config['MAIL_USERNAME'] = 'tumroomlocator@gmail.com'
+app.config['MAIL_PASSWORD'] = 'wvmj sszc amiz zkrd'
 app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
 
 mail = Mail(app)
@@ -44,8 +41,9 @@ def normalize_query(q):
 
 @app.context_processor
 def inject_user():
-    if 'user_id' not in session:
-        return dict(current_user={"is_authenticated": False})
+    user_id = session.get("user_id")
+    if not user_id:
+        return dict(current_user=None)
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
@@ -112,6 +110,40 @@ def register():
 
     return render_template('register.html')
 
+#------------------------- LOGIN REQUIRED DECORATOR ------------------------#
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please login first')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+#------------------------- ADMIN REQUIRED DECORATOR ------------------------#
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT role FROM users WHERE id=%s", (session["user_id"],))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not user or user['role'] != "admin":
+            flash("Unauthorized access", "danger")
+            return redirect(url_for("map"))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 #------------------------- LOGIN ------------------------#
 
@@ -135,7 +167,9 @@ def login():
         if user and check_password_hash(user['password'], password):
 
             session['user_id'] = user['id']
+            session['username'] = user['username']
             session['role'] = user['role']
+            session.permanent = True
 
             return redirect('/admin' if user['role'] == 'admin' else '/map')
 
@@ -143,9 +177,11 @@ def login():
 
     return render_template('login.html')
 
+
 #------------------------- ACCOUNT PAGE ------------------------#
 
 @app.route('/account')
+@login_required
 def account():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -155,6 +191,7 @@ def account():
 #------------------------- CHANGE EMAIL ------------------------#
 
 @app.route('/change-email', methods=['GET', 'POST'])
+@login_required
 def change_email():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -304,6 +341,7 @@ def reset_password():
 #------------------------- CHANGE PASSWORD ------------------------#
 
 @app.route('/change-password', methods=['GET', 'POST'])
+@login_required
 def change_password():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -350,16 +388,14 @@ def change_password():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('home'))
+    return redirect(url_for('login'))
 
 
 #-------------------------- ADMIN DASHBOARD --------------------------#
 
 @app.route('/admin')
+@admin_required
 def admin():
-
-    if not require_admin():
-        return "Unauthorized", 403
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
@@ -387,10 +423,8 @@ def admin():
 #----------------------- ADD CAMPUS -----------------------#
 
 @app.route('/admin/add_campus', methods=['POST'])
+@admin_required
 def add_campus():
-
-    if not require_admin():
-        return "Unauthorized", 403
 
     name = request.form['name']
 
@@ -409,11 +443,8 @@ def add_campus():
 #----------------------- ADD BUILDING -----------------------#
 
 @app.route('/admin/add_building', methods=['POST'])
+@admin_required
 def add_building():
-
-    if not require_admin():
-        return "Unauthorized", 403
-
     try:
         lat = float(request.form['latitude'])
         lng = float(request.form['longitude'])
@@ -447,10 +478,8 @@ def add_building():
 #----------------------- ADD ROOM -----------------------#
 
 @app.route('/admin/add_room', methods=['POST'])
+@admin_required
 def add_room():
-
-    if not require_admin():
-        return "Unauthorized", 403
 
     conn = get_db()
     cursor = conn.cursor()
@@ -475,10 +504,8 @@ def add_room():
 #-------------------------- DELETE BUILDING --------------------------#
 
 @app.route('/admin/delete_building', methods=['POST'])
+@admin_required
 def delete_building():
-
-    if not require_admin():
-        return "Unauthorized", 403
 
     building_id = request.form['id']
 
@@ -501,10 +528,8 @@ def delete_building():
 #-------------------------- DELETE ROOM --------------------------#
 
 @app.route('/admin/delete_room', methods=['POST'])
+@admin_required
 def delete_room():
-
-    if not require_admin():
-        return "Unauthorized", 403
 
     room_id = request.form['id']
 
@@ -520,9 +545,104 @@ def delete_room():
     return redirect('/admin')
 
 
+#-------------------------- MANAGE USERS --------------------------#
+
+@app.route('/manage_users')
+@admin_required
+def manage_users():
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT id, username, email, role, created_at
+        FROM users
+        ORDER BY created_at DESC
+    """)
+    users = cursor.fetchall()
+
+    cursor.execute("SELECT COUNT(*) AS total FROM users")
+    total_users = cursor.fetchone()['total']
+
+    cursor.execute("""
+        SELECT username, email, role, created_at
+        FROM users
+        ORDER BY created_at DESC
+        LIMIT 5
+    """)
+    recent_users = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT location_name, COUNT(*) AS count
+        FROM searches
+        WHERE location_name IS NOT NULL AND location_name != ''
+        GROUP BY location_name
+        ORDER BY count DESC
+        LIMIT 5
+    """)
+    popular = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        'manage_users.html',
+        users=users,
+        total_users=total_users,
+        recent_users=recent_users,
+        popular=popular
+    )
+
+#-------------------------- DELETE USER --------------------------#
+
+@app.route("/admin/delete_user", methods=["POST"])
+@login_required
+@admin_required
+def delete_user():
+    user_id = request.form.get("user_id")
+
+    if user_id:
+        if str(user_id) == str(session.get("user_id")):
+            flash("You cannot delete yourself", "danger")
+        else:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+    return redirect(url_for("manage_users"))
+
+
+#-------------------------- TOGGLE ROLE --------------------------#
+
+@app.route("/admin/toggle_role", methods=["POST"])
+@login_required
+@admin_required
+def toggle_role():
+    user_id = request.form.get("user_id")
+    if user_id:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT role FROM users WHERE id=%s", (user_id,))
+        user = cursor.fetchone()
+
+        if user:
+            new_role = "admin" if user["role"] == "user" else "user"
+            cursor.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
+            conn.commit()
+
+        cursor.close()
+        conn.close()
+
+    return redirect(url_for("manage_users"))
+
+
 #-------------------------- MAP VIEW --------------------------#
 
 @app.route('/map')
+@login_required
 def map_view():
     building_id = request.args.get('building_id')
     return render_template('map.html', building_id=building_id)
@@ -531,6 +651,7 @@ def map_view():
 #-------------------------- SEARCH API --------------------------#
 
 @app.route('/api/search')
+@login_required
 def search():
 
     query = request.args.get('q', '').lower().strip()
@@ -604,6 +725,7 @@ def api_rooms(building_id):
 
 #-------------------------- RECENTS PAGE --------------------------#
 @app.route('/recents')
+@login_required
 def recents():
     if 'user_id' not in session:
         return redirect(url_for('login'))

@@ -2,26 +2,51 @@
 
 {% block content %}
 
-<div class="p-4">
-
-    <h2 class="text-xl font-bold mb-4">Recent Locations</h2>
+<div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow">
+    <h2 class="text-2xl font-bold text-green-700 mb-4">Recent Locations</h2>
 
     <div id="recentList" class="space-y-3"></div>
 
+    <p id="emptyState" class="hidden text-gray-500 text-center py-8">
+        No recent locations yet. Search for a room or building first.
+    </p>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    const recents = JSON.parse(localStorage.getItem("recents")) || [];
+    const recents = JSON.parse(localStorage.getItem("recentSearches")) || [];
     const list = document.getElementById("recentList");
+    const emptyState = document.getElementById("emptyState");
+
+    if (!recents.length) {
+        emptyState.classList.remove("hidden");
+        return;
+    }
 
     recents.forEach(item => {
         const div = document.createElement("div");
-        div.className = "p-3 bg-white shadow rounded";
+        div.className = "p-4 bg-gray-50 border rounded-lg hover:bg-gray-100 transition";
+
+        const title = item.roomName
+            ? `${item.roomName} (${item.name})`
+            : item.name;
+
+        const subtitle = item.roomName
+            ? `Room • Floor ${item.floor || "N/A"}`
+            : "Building";
 
         div.innerHTML = `
-            <h4 class="font-semibold">${item.name}</h4>
-            <p class="text-sm text-gray-500">${item.type}</p>
+            <div class="flex justify-between items-center gap-3">
+                <div>
+                    <h4 class="font-semibold text-gray-800">${title}</h4>
+                    <p class="text-sm text-gray-500">${subtitle}</p>
+                </div>
+
+                <a href="/map"
+                   class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                    Open Map
+                </a>
+            </div>
         `;
 
         list.appendChild(div);
