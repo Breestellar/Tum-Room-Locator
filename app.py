@@ -713,6 +713,7 @@ def log_search():
 #-------------------------- BUILDINGS API --------------------------#
 
 @app.route('/api/buildings')
+@login_required
 def api_buildings():
 
     conn = get_db()
@@ -736,6 +737,7 @@ def api_buildings():
 
 #-------------------------- ROOMS API --------------------------#
 @app.route('/api/rooms/<int:building_id>')
+@login_required
 def api_rooms(building_id):
 
     conn = get_db()
