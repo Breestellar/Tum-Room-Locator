@@ -885,6 +885,39 @@ def api_buildings():
         } for b in buildings
     ])
 
+#-------------------------- BUILDING SEARCH API --------------------------#
+
+@app.route('/api/building-search')
+@login_required
+def building_search():
+    query = request.args.get('q', '').lower().strip()
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT id, name, latitude AS lat, longitude AS lng
+        FROM building
+        WHERE LOWER(name) LIKE %s
+        ORDER BY name
+        LIMIT 10
+    """, (f"%{query}%",))
+
+    buildings = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify([
+        {
+            "id": b["id"],
+            "name": b["name"],
+            "lat": float(b["lat"]),
+            "lng": float(b["lng"])
+        }
+        for b in buildings
+    ])
+
 
 #-------------------------- ROOMS API --------------------------#
 @app.route('/api/rooms/<int:building_id>')

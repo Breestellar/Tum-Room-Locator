@@ -11,12 +11,18 @@ let selectedBuilding = "";
 let destination = null;
 let currentStepIndex = 0;
 let steps = [];
+let lastInstructionTime = 0;
 let lastSpokenStep = -1;
 let arrivalThreshold = 30; // meters
+let selectedStartPlace = null;
 
 const input = document.getElementById("searchInput");
 const suggestionsBox = document.getElementById("suggestions");
 const WALKING_SPEED = 1.4;
+const startModeSelect = document.getElementById("startModeSelect");
+const startSearchBox = document.getElementById("startSearchBox");
+const startSearchInput = document.getElementById("startSearchInput");
+const startSuggestions = document.getElementById("startSuggestions");
 
 // MAP INITIALIZATION
 let map = L.map("map").setView([-4.0385, 39.668], 16);
@@ -61,6 +67,9 @@ let watchId = null;
 let lastPosition = null;
 
 // LOAD BUILDINGS
+// Pins are hidden on initial load to keep the map clean.
+// Markers will appear only after the user searches/selects a location.
+/*
 fetch("/api/buildings")
   .then((res) => res.json())
   .then((data) => {
@@ -70,6 +79,7 @@ fetch("/api/buildings")
         .bindPopup(`<b>${b.name}</b>`);
     });
   });
+*/
 
 // SEARCH
 input.addEventListener("input", () => {
@@ -163,6 +173,13 @@ function selectLocation(
   instructions,
 ) {
   suggestionsBox.classList.add("hidden");
+
+  selectedStartPlace = null;
+
+  if (startModeSelect) startModeSelect.value = "current";
+  if (startSearchBox) startSearchBox.classList.add("hidden");
+  if (startSearchInput) startSearchInput.value = "";
+  if (startSuggestions) startSuggestions.classList.add("hidden");
 
   const displayName = roomName ? `${roomName} (${buildingName})` : buildingName;
 
@@ -258,15 +275,57 @@ function closePlaceInfo() {
 
 // DIRECTIONS
 function showDirectionsForSelectedPlace() {
-  if (!selectedPlace) return;
+  if (!selectedPlace) {
+    alert("Please select a destination first.");
+    return;
+  }
 
   openDirectionsPanel();
 
-  document.getElementById("routeOptions").innerHTML = `
+  const routeOptions = document.getElementById("routeOptions");
+  const etaBox = document.getElementById("etaBox");
+
+  routeOptions.innerHTML = `
     <div class="p-3 bg-gray-50 border rounded-lg">
-      Calculating best route...
+      <div class="font-semibold text-gray-700">Calculating best route...</div>
+      <div class="text-sm text-gray-500 mt-1">Please wait.</div>
     </div>
   `;
+
+  etaBox.innerText = "Preparing route...";
+
+  const timeout = setTimeout(() => {
+    etaBox.innerText = "Route is taking longer than expected.";
+  }, 10000);
+
+  if (startModeSelect && startModeSelect.value === "building") {
+    if (!selectedStartPlace) {
+      if (timeout) clearTimeout(timeout);
+
+      routeOptions.innerHTML = `
+        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700">
+          Please choose a valid starting building from the suggestions.
+        </div>
+      `;
+
+      etaBox.innerText = "Starting point required.";
+      return;
+    }
+
+    updateUserLocation(selectedStartPlace.lat, selectedStartPlace.lng, 10);
+
+    getRouteSmart(
+      selectedStartPlace.lat,
+      selectedStartPlace.lng,
+      selectedPlace.lat,
+      selectedPlace.lng,
+      timeout,
+    );
+
+    return;
+  }
+
+  etaBox.innerText = "Getting your current location...";
 
   getUserLocation((userLat, userLng) => {
     getRouteSmart(
@@ -286,6 +345,70 @@ function startNavigationFromInfo() {
     const btn = document.getElementById("startNavBtn");
     if (btn) btn.click();
   }, 1200);
+}
+
+function toggleStartSearch() {
+  if (!startModeSelect || !startSearchBox) return;
+
+  selectedStartPlace = null;
+
+  if (startModeSelect.value === "building") {
+    startSearchBox.classList.remove("hidden");
+    startSearchInput.focus();
+  } else {
+    startSearchBox.classList.add("hidden");
+    startSearchInput.value = "";
+    startSuggestions.classList.add("hidden");
+  }
+}
+
+if (startSearchInput) {
+  startSearchInput.addEventListener("input", () => {
+    const query = startSearchInput.value.trim();
+
+    selectedStartPlace = null;
+
+    if (query.length < 2) {
+      startSuggestions.classList.add("hidden");
+      return;
+    }
+
+    fetch(`/api/building-search?q=${encodeURIComponent(query)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.length) {
+          startSuggestions.innerHTML = `
+            <div class="p-3 text-sm text-gray-500">
+              No building found
+            </div>
+          `;
+          startSuggestions.classList.remove("hidden");
+          return;
+        }
+
+        startSuggestions.innerHTML = "";
+
+        data.forEach((building) => {
+          const div = document.createElement("div");
+          div.className = "p-3 hover:bg-green-50 cursor-pointer border-b";
+
+          div.innerHTML = `
+            <div class="font-semibold text-gray-800">🏢 ${building.name}</div>
+            <div class="text-sm text-gray-500">Use as starting point</div>
+          `;
+
+          div.addEventListener("click", () => {
+            selectedStartPlace = building;
+            startSearchInput.value = building.name;
+            startSuggestions.classList.add("hidden");
+          });
+
+          startSuggestions.appendChild(div);
+        });
+
+        startSuggestions.classList.remove("hidden");
+      });
+  });
 }
 
 // USER LOCATION
@@ -611,7 +734,9 @@ document.getElementById("startNavBtn").onclick = function () {
     currentStepIndex = 0;
     lastSpokenStep = -1;
 
-    speak("Navigation started");
+    speak(
+      `Navigation started to ${destination.name}. Follow the highlighted route.`,
+    );
     startLiveTracking();
 
     this.innerText = "Stop Navigation";
@@ -645,7 +770,7 @@ function startLiveTracking() {
       let distToDest = userPos.distanceTo(dest);
 
       if (distToDest < arrivalThreshold) {
-        speak("You have arrived at your destination");
+        speak(`You have arrived at ${destination.name}.`);
         stopNavigation();
         showRoomGuidance();
         return;
@@ -662,11 +787,20 @@ function startLiveTracking() {
       let distToStep = userPos.distanceTo(nextPoint);
 
       // VOICE TRIGGER
-      if (distToStep < 15 && currentStepIndex !== lastSpokenStep) {
-        speak(step.maneuver.instruction);
-        lastSpokenStep = currentStepIndex;
+      if (step && step.maneuver && currentStepIndex !== lastSpokenStep) {
+        const instruction = step.maneuver.instruction || "Continue straight";
+        const roundedDistance = Math.round(distToStep);
 
-        currentStepIndex++;
+        if (distToStep <= 80 && Date.now() - lastInstructionTime > 7000) {
+          speak(`In ${roundedDistance} meters, ${instruction}`);
+          lastInstructionTime = Date.now();
+        }
+
+        if (distToStep <= 15) {
+          speak(instruction);
+          lastSpokenStep = currentStepIndex;
+          currentStepIndex++;
+        }
       }
 
       // SMART REROUTE
@@ -817,6 +951,10 @@ function resetMap() {
 
   document.getElementById("routeOptions").innerHTML = "";
   document.getElementById("etaBox").innerText = "";
+
+  closePlaceInfo();
+  input.value = "";
+  suggestionsBox.classList.add("hidden");
 
   closeDirections();
 

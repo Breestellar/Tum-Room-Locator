@@ -43,44 +43,80 @@
     </button>
 
     <!-- PLACE INFO PANEL -->
-    <div id="placeInfoPanel"
-         class="hidden fixed bottom-0 left-0 right-0 bg-white shadow-2xl rounded-t-3xl p-5 z-[1300]
-                md:absolute md:top-28 md:left-6 md:bottom-auto md:right-auto md:w-96 md:rounded-2xl">
+<div id="placeInfoPanel"
+     class="hidden fixed bottom-0 left-0 right-0 bg-white shadow-2xl rounded-t-3xl p-5 z-[1300]
+            md:absolute md:top-28 md:left-6 md:bottom-auto md:right-auto md:w-96 md:rounded-2xl">
 
-        <div class="flex justify-between gap-3">
-            <div>
-                <p id="placeBadge" class="inline-block text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full mb-2">
-                    Selected Location
-                </p>
+    <!-- Header -->
+    <div class="flex justify-between gap-3">
+        <div>
+            <p id="placeBadge"
+               class="inline-block text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full mb-2">
+                Selected Location
+            </p>
 
-                <h2 id="placeTitle" class="text-2xl font-bold text-gray-800 leading-tight"></h2>
-                <p id="placeType" class="text-sm text-gray-500 mt-1"></p>
-            </div>
+            <h2 id="placeTitle"
+                class="text-2xl font-bold text-gray-800 leading-tight">
+            </h2>
 
-            <button onclick="closePlaceInfo()"
-                    class="text-gray-400 hover:text-red-500 text-xl">
-                ×
-            </button>
+            <p id="placeType"
+               class="text-sm text-gray-500 mt-1">
+            </p>
         </div>
 
-        <div id="placeDetails" class="text-sm text-gray-600 mt-4 space-y-2"></div>
-
-        <div class="mt-5 grid grid-cols-2 gap-3">
-            <button onclick="showDirectionsForSelectedPlace()"
-                    class="bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
-                Directions
-            </button>
-
-            <button onclick="startNavigationFromInfo()"
-                    class="bg-gray-900 text-white py-3 rounded-xl hover:bg-black font-medium">
-                Start
-            </button>
-        </div>
-
-        <p class="text-xs text-gray-400 mt-4">
-            Tip: For rooms, follow the building route first, then use the floor instructions.
-        </p>
+        <button onclick="closePlaceInfo()"
+                class="text-gray-400 hover:text-red-500 text-xl">
+            ×
+        </button>
     </div>
+
+    <!-- Dynamic details from map.js -->
+    <div id="placeDetails"
+         class="text-sm text-gray-600 mt-4 space-y-2">
+    </div>
+
+    <!-- Starting location -->
+<div class="mt-5">
+    <label for="startModeSelect" class="block text-sm font-medium text-gray-700 mb-2">
+        Starting Location
+    </label>
+
+    <select id="startModeSelect"
+            title="Select starting location mode"
+            onchange="toggleStartSearch()"
+            class="w-full border rounded-xl p-3 mb-3 focus:outline-none focus:ring-2 focus:ring-green-500">
+        <option value="current">Use Current Location</option>
+        <option value="building">Choose Starting Building</option>
+    </select>
+
+    <div id="startSearchBox" class="hidden relative mb-3">
+        <input type="text"
+               id="startSearchInput"
+               placeholder="Type starting building..."
+               class="w-full border rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500">
+
+        <div id="startSuggestions"
+             class="absolute left-0 right-0 bg-white border rounded-xl shadow-lg mt-2 hidden z-[1500] max-h-56 overflow-y-auto">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <button onclick="showDirectionsForSelectedPlace()"
+                class="bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
+            Directions
+        </button>
+
+        <button onclick="closePlaceInfo()"
+                class="bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 font-medium">
+            Close
+        </button>
+    </div>
+</div>
+
+    <p class="text-xs text-gray-400 mt-4">
+        Tip: For rooms, follow the building route first, then use the floor instructions.
+    </p>
+</div>
 
     <!-- ROOM ARRIVAL INFO -->
     <div id="roomInfo"
