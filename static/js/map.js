@@ -30,6 +30,30 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 let markersLayer = L.layerGroup().addTo(map);
 let routeLayers = [];
 
+const defaultMarkerIcon = new L.Icon.Default();
+
+const selectedMarkerIcon = L.divIcon({
+  className: "selected-location-marker",
+  html: `
+    <div style="
+      background:#16a34a;
+      color:white;
+      inline-size:34px;
+      block-size:34px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:3px solid white;
+      box-shadow:0 4px 12px rgba(0,0,0,.35);
+      font-weight:bold;">
+      📍
+    </div>
+  `,
+  iconSize: [34, 34],
+  iconAnchor: [17, 34],
+});
+
 // STATE
 let userMarker = null;
 let accuracyCircle = null;
@@ -62,7 +86,12 @@ input.addEventListener("input", () => {
       if (!data.length) {
         suggestionsBox.innerHTML =
           "<p class='p-2 text-gray-400'>Searching...</p>";
-        suggestionsBox.innerHTML = "<p class='p-2'>No results</p>";
+        suggestionsBox.innerHTML = `
+          <div class="p-4 text-sm text-gray-500">
+            <p class="font-medium text-gray-700">No results found</p>
+            <p>Try searching another building, room, or facility name.</p>
+          </div>
+        `;
         suggestionsBox.classList.remove("hidden");
         return;
       }
@@ -71,8 +100,8 @@ input.addEventListener("input", () => {
 
       data.forEach((item) => {
         let div = document.createElement("div");
-        div.className = "p-3 hover:bg-gray-100 cursor-pointer border-b";
-
+        div.className =
+          "p-4 hover:bg-green-50 cursor-pointer border-b transition";
         let title = item.room_name
           ? `${item.room_name} (Room)`
           : `${item.building_name} (Building)`;
@@ -82,9 +111,14 @@ input.addEventListener("input", () => {
           : `Building`;
 
         div.innerHTML = `
-                    <div class="font-semibold">${title}</div>
-                    <div class="text-sm text-gray-500">${subtitle}</div>
-                `;
+          <div class="flex items-start gap-3">
+            <div class="text-green-600 text-lg">${item.room_name ? "🚪" : "🏢"}</div>
+            <div>
+              <div class="font-semibold text-gray-800">${title}</div>
+              <div class="text-sm text-gray-500">${subtitle}</div>
+            </div>
+          </div>
+        `;
 
         div.addEventListener("click", () => {
           selectLocation(
@@ -155,7 +189,7 @@ function selectLocation(
 
   markersLayer.clearLayers();
 
-  L.marker([lat, lng])
+  L.marker([lat, lng], { icon: selectedMarkerIcon })
     .addTo(markersLayer)
     .bindPopup(`<b>${displayName}</b>`)
     .openPopup();
@@ -181,23 +215,38 @@ function showPlaceInfo(place) {
   const panel = document.getElementById("placeInfoPanel");
   const title = document.getElementById("placeTitle");
   const type = document.getElementById("placeType");
+  const badge = document.getElementById("placeBadge");
   const details = document.getElementById("placeDetails");
 
-  title.textContent = place.roomName ? `${place.roomName}` : place.buildingName;
+  title.textContent = place.roomName ? place.roomName : place.buildingName;
 
   type.textContent = place.roomName
-    ? `Room in ${place.buildingName}`
-    : "Building";
+    ? `Room located in ${place.buildingName}`
+    : "Campus building";
+
+  badge.textContent = place.roomName ? "Room" : "Building";
 
   details.innerHTML = place.roomName
     ? `
-        <p><strong>Building:</strong> ${place.buildingName}</p>
-        <p><strong>Floor:</strong> ${place.floor || "N/A"}</p>
-        <p><strong>Instructions:</strong> ${place.instructions || "No room instructions added yet."}</p>
+        <div class="bg-gray-50 border rounded-xl p-3">
+          <p><strong>Building:</strong> ${place.buildingName}</p>
+          <p><strong>Floor:</strong> ${place.floor || "N/A"}</p>
+        </div>
+
+        <div class="bg-green-50 border border-green-100 rounded-xl p-3">
+          <p class="font-semibold text-green-700 mb-1">Room Guidance</p>
+          <p>${place.instructions || "No room instructions added yet."}</p>
+        </div>
       `
     : `
-        <p><strong>Location:</strong> TUM Campus</p>
-        <p>Select Directions to calculate the best walking route.</p>
+        <div class="bg-gray-50 border rounded-xl p-3">
+          <p><strong>Location:</strong> Technical University of Mombasa</p>
+          <p><strong>Type:</strong> Building</p>
+        </div>
+
+        <div class="bg-green-50 border border-green-100 rounded-xl p-3">
+          <p>Select Directions to calculate the walking route.</p>
+        </div>
       `;
 
   panel.classList.remove("hidden");
@@ -219,14 +268,6 @@ function showDirectionsForSelectedPlace() {
     </div>
   `;
 
-  document.getElementById("etaBox").innerText =
-    "This may take a few seconds for longer distances.";
-
-  const timeout = setTimeout(() => {
-    document.getElementById("etaBox").innerText =
-      "Route is taking longer than expected. Check your internet connection or try again.";
-  }, 8000);
-
   getUserLocation((userLat, userLng) => {
     getRouteSmart(
       userLat,
@@ -237,6 +278,16 @@ function showDirectionsForSelectedPlace() {
     );
   });
 }
+
+function startNavigationFromInfo() {
+  showDirectionsForSelectedPlace();
+
+  setTimeout(() => {
+    const btn = document.getElementById("startNavBtn");
+    if (btn) btn.click();
+  }, 1200);
+}
+
 // USER LOCATION
 function getUserLocation(callback) {
   navigator.geolocation.getCurrentPosition(
@@ -252,6 +303,13 @@ function getUserLocation(callback) {
     () => alert("Enable location"),
   );
 }
+
+function centerOnUserLocation() {
+  getUserLocation((lat, lng) => {
+    map.setView([lat, lng], 18);
+  });
+}
+
 // UPDATE USER LOCATION
 function updateUserLocation(lat, lng, accuracy) {
   if (userMarker) map.removeLayer(userMarker);
