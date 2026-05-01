@@ -1,4 +1,4 @@
-import re, random, os, pandas as pd
+import re, random, pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -25,23 +25,6 @@ app.config['MAIL_PASSWORD'] = 'wvmj sszc amiz zkrd'
 app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
 
 mail = Mail(app)
-
-serializer = URLSafeTimedSerializer(app.secret_key)
-
-
-#------------------------ HELPER FUNCTIONS ------------------------#
-
-def require_admin():
-    return session.get('role') == 'admin'
-
-
-def normalize_query(q):
-    q = q.lower()
-    q = q.replace("rm", "room ")
-    q = re.sub(r'[^a-z0-9 ]', '', q)
-    q = re.sub(r'\s+', ' ', q).strip()
-    return q
-
 
 #------------------------ EXCEL REPORT GENERATION ------------------------#
 

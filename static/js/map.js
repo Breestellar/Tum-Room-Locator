@@ -413,23 +413,46 @@ if (startSearchInput) {
 
 // USER LOCATION
 function getUserLocation(callback) {
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by this browser.");
+    return;
+  }
+
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      let [lat, lng] = smoothPosition(
-        pos.coords.latitude,
-        pos.coords.longitude,
-      );
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const accuracy = pos.coords.accuracy;
 
-      updateUserLocation(lat, lng, pos.coords.accuracy);
-      callback(lat, lng);
+      updateUserLocation(lat, lng, accuracy);
+      callback(lat, lng, accuracy);
     },
-    () => alert("Enable location"),
+    (error) => {
+      if (error.code === error.PERMISSION_DENIED) {
+        alert("Location permission was denied. Please allow location access.");
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
+        alert("Your location is unavailable. Turn on GPS/location services.");
+      } else if (error.code === error.TIMEOUT) {
+        alert(
+          "Location request timed out. Try again outside or with GPS enabled.",
+        );
+      } else {
+        alert("Could not get your location.");
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 20000,
+      maximumAge: 0,
+    },
   );
 }
 
 function centerOnUserLocation() {
-  getUserLocation((lat, lng) => {
+  getUserLocation((lat, lng, accuracy) => {
     map.setView([lat, lng], 18);
+
+    alert(`Current location found. Accuracy: ±${Math.round(accuracy)} meters`);
   });
 }
 

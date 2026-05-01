@@ -51,8 +51,19 @@
                 </div>
 
                 <!-- MAP -->
-                <div id="buildingMap" class="h-48 rounded"></div>
-                <p class="text-xs text-gray-500">Click map to auto-fill coordinates</p>
+                <div id="buildingMap" class="h-48 rounded border"></div>
+
+                <div class="flex gap-2 mt-2">
+                    <button type="button"
+                            id="useCurrentLocationBtn"
+                            class="bg-blue-600 text-white px-3 py-2 rounded w-full hover:bg-blue-700">
+                        Use Current Location
+                    </button>
+                </div>
+
+                <p id="locationStatus" class="text-xs text-gray-500 mt-1">
+                    Click map or use current location to auto-fill coordinates.
+                </p>
 
                 <button type="submit"
                     class="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">
@@ -195,9 +206,14 @@
 document.addEventListener("DOMContentLoaded", function () {
 
     const mapEl = document.getElementById('buildingMap');
+    const latInput = document.getElementById('latInput');
+    const lngInput = document.getElementById('lngInput');
+    const useCurrentLocationBtn = document.getElementById('useCurrentLocationBtn');
+    const locationStatus = document.getElementById('locationStatus');
+
     if (!mapEl) return;
 
-    var adminMap = L.map('buildingMap').setView([-4.0385, 39.6680], 16);
+    const adminMap = L.map('buildingMap').setView([-4.0385, 39.6680], 16);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
@@ -205,18 +221,68 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let marker;
 
-    adminMap.on('click', function(e) {
-
-        let lat = e.latlng.lat;
-        let lng = e.latlng.lng;
-
-        document.getElementById('latInput').value = lat;
-        document.getElementById('lngInput').value = lng;
+    function setBuildingCoordinates(lat, lng, message = "Coordinates selected.") {
+        latInput.value = lat.toFixed(7);
+        lngInput.value = lng.toFixed(7);
 
         if (marker) adminMap.removeLayer(marker);
 
         marker = L.marker([lat, lng]).addTo(adminMap);
+        adminMap.setView([lat, lng], 18);
+
+        if (locationStatus) {
+            locationStatus.textContent = message;
+        }
+    }
+
+    adminMap.on('click', function(e) {
+        setBuildingCoordinates(
+            e.latlng.lat,
+            e.latlng.lng,
+            "Coordinates selected from map."
+        );
     });
+
+    if (useCurrentLocationBtn) {
+        useCurrentLocationBtn.addEventListener('click', function () {
+
+            if (!navigator.geolocation) {
+                locationStatus.textContent = "Geolocation is not supported by this browser.";
+                return;
+            }
+
+            useCurrentLocationBtn.disabled = true;
+            useCurrentLocationBtn.textContent = "Getting location...";
+            locationStatus.textContent = "Please allow location access.";
+
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = Math.round(position.coords.accuracy);
+
+                    setBuildingCoordinates(
+                        lat,
+                        lng,
+                        `Current location selected. Accuracy: ±${accuracy} meters.`
+                    );
+
+                    useCurrentLocationBtn.disabled = false;
+                    useCurrentLocationBtn.textContent = "Use Current Location";
+                },
+                function () {
+                    locationStatus.textContent = "Could not get location. Make sure GPS/location is enabled.";
+                    useCurrentLocationBtn.disabled = false;
+                    useCurrentLocationBtn.textContent = "Use Current Location";
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        });
+    }
 
 });
 </script>
