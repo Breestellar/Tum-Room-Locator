@@ -1,4 +1,4 @@
-import re, random, pandas as pd
+import re, os, random
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -9,19 +9,19 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'
-
+app.secret_key = os.getenv("SECRET_KEY", "dev_fallback_key")
 #------------------------- MAIL CONFIG ------------------------#
 
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'tumroomlocator@gmail.com'
-app.config['MAIL_PASSWORD'] = 'wvmj sszc amiz zkrd'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
 
 mail = Mail(app)
@@ -1083,4 +1083,4 @@ def generate_excel_report(title, data):
 #------------------- RUN APP -------------------#
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
