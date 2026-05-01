@@ -1,4 +1,4 @@
-import re, os, random
+import re, os, random, pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -776,7 +776,6 @@ def toggle_role():
 #-------------------------- MAP VIEW --------------------------#
 
 @app.route('/map')
-@login_required
 def map_view():
     building_id = request.args.get('building_id')
     return render_template('map.html', building_id=building_id)
@@ -785,7 +784,6 @@ def map_view():
 #-------------------------- SEARCH API --------------------------#
 
 @app.route('/api/search')
-@login_required
 def search():
 
     query = request.args.get('q', '').lower().strip()
@@ -821,7 +819,6 @@ def search():
 #-------------------------- LOG SEARCH API --------------------------#
 
 @app.route('/api/log-search', methods=['POST'])
-@login_required
 def log_search():
     data = request.get_json()
     location_name = data.get('location_name', '').strip()
@@ -829,12 +826,14 @@ def log_search():
     if not location_name:
         return jsonify({"status": "ignored"})
 
+    user_id = session.get('user_id')  # None for visitors
+
     conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute(
         "INSERT INTO searches (user_id, location_name) VALUES (%s, %s)",
-        (session['user_id'], location_name)
+        (user_id, location_name)
     )
 
     conn.commit()
@@ -843,11 +842,9 @@ def log_search():
 
     return jsonify({"status": "success"})
 
-
 #-------------------------- BUILDINGS API --------------------------#
 
 @app.route('/api/buildings')
-@login_required
 def api_buildings():
 
     conn = get_db()
@@ -871,7 +868,6 @@ def api_buildings():
 #-------------------------- BUILDING SEARCH API --------------------------#
 
 @app.route('/api/building-search')
-@login_required
 def building_search():
     query = request.args.get('q', '').lower().strip()
 
@@ -904,7 +900,6 @@ def building_search():
 
 #-------------------------- ROOMS API --------------------------#
 @app.route('/api/rooms/<int:building_id>')
-@login_required
 def api_rooms(building_id):
 
     conn = get_db()
