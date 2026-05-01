@@ -2,52 +2,84 @@
 
 {% block content %}
 
-<div class="relative w-full h-screen overflow-hidden">
+<div class="relative w-full h-screen overflow-hidden bg-gray-100">
 
     <!-- MAP -->
     <div id="map" class="w-full h-full z-0"></div>
 
-    <!-- SEARCH CONTROLS -->
-    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-[92%] md:w-[60%] z-[1100] flex gap-2">
+    <!-- SEARCH BAR -->
+    <div class="absolute top-5 left-1/2 transform -translate-x-1/2 w-[92%] md:w-[58%] z-[1100]">
 
-        <div class="relative flex-1">
-            <input type="text" id="searchInput"
-                   placeholder="Search building or room..."
-                   class="border p-3 rounded-lg w-full shadow bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+        <div class="flex items-center gap-2 bg-white rounded-2xl shadow-lg border px-4 py-2">
 
-            <div id="suggestions"
-                 class="absolute w-full bg-white border rounded-lg shadow mt-1 hidden z-[1200] max-h-64 overflow-y-auto">
+            <span class="text-gray-400 text-lg">🔍</span>
+
+            <div class="relative flex-1">
+                <input type="text" id="searchInput"
+                       placeholder="Search building or room..."
+                       class="w-full p-2 outline-none text-gray-700">
+
+                <div id="suggestions"
+                     class="absolute left-0 right-0 bg-white border rounded-xl shadow-lg mt-3 hidden z-[1200] max-h-72 overflow-y-auto">
+                </div>
             </div>
+
+            <button onclick="resetMap()"
+                    class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl">
+                Reset
+            </button>
         </div>
 
-        <button onclick="resetMap()"
-            class="bg-orange-500 text-white px-4 py-2 rounded-lg shadow hover:bg-orange-600">
-            Reset
-        </button>
-
+        <p id="searchHint" class="mt-2 text-xs text-center text-gray-600 bg-white/80 rounded-full py-1 px-3 hidden md:block">
+            Search for a room, building, office, or facility within TUM.
+        </p>
     </div>
 
-    <!-- INFO CARD -->
+    <!-- FLOATING LOCATION BUTTON -->
+    <button onclick="centerOnUserLocation()"
+            class="absolute right-5 bottom-24 md:bottom-8 z-[1100] bg-white shadow-lg border rounded-full w-12 h-12 flex items-center justify-center text-xl hover:bg-gray-50"
+            title="Use my location">
+        📍
+    </button>
+
+    <!-- PLACE INFO PANEL -->
     <div id="placeInfoPanel"
-         class="hidden fixed bottom-0 left-0 right-0 bg-white shadow-2xl rounded-t-2xl p-5 z-[1300]
-                md:absolute md:top-24 md:left-6 md:bottom-auto md:right-auto md:w-80 md:rounded-xl">
+         class="hidden fixed bottom-0 left-0 right-0 bg-white shadow-2xl rounded-t-3xl p-5 z-[1300]
+                md:absolute md:top-28 md:left-6 md:bottom-auto md:right-auto md:w-96 md:rounded-2xl">
 
-        <h2 id="placeTitle" class="text-xl font-bold text-gray-800"></h2>
-        <p id="placeType" class="text-sm text-gray-500 mt-1"></p>
+        <div class="flex justify-between gap-3">
+            <div>
+                <p id="placeBadge" class="inline-block text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full mb-2">
+                    Selected Location
+                </p>
 
-        <div id="placeDetails" class="text-sm text-gray-600 mt-3 space-y-1"></div>
+                <h2 id="placeTitle" class="text-2xl font-bold text-gray-800 leading-tight"></h2>
+                <p id="placeType" class="text-sm text-gray-500 mt-1"></p>
+            </div>
+
+            <button onclick="closePlaceInfo()"
+                    class="text-gray-400 hover:text-red-500 text-xl">
+                ×
+            </button>
+        </div>
+
+        <div id="placeDetails" class="text-sm text-gray-600 mt-4 space-y-2"></div>
 
         <div class="mt-5 grid grid-cols-2 gap-3">
             <button onclick="showDirectionsForSelectedPlace()"
-                    class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                    class="bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
                 Directions
             </button>
 
-            <button onclick="closePlaceInfo()"
-                    class="bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300">
-                Close
+            <button onclick="startNavigationFromInfo()"
+                    class="bg-gray-900 text-white py-3 rounded-xl hover:bg-black font-medium">
+                Start
             </button>
         </div>
+
+        <p class="text-xs text-gray-400 mt-4">
+            Tip: For rooms, follow the building route first, then use the floor instructions.
+        </p>
     </div>
 
     <!-- ROOM ARRIVAL INFO -->
@@ -58,24 +90,28 @@
 
 <!-- DIRECTIONS PANEL -->
 <div id="directionsPanel"
-     class="fixed bottom-0 left-0 w-full bg-white shadow-lg rounded-t-xl p-4 z-[1400] hidden
-            md:top-0 md:right-0 md:left-auto md:h-full md:w-96 md:rounded-none">
+     class="fixed bottom-0 left-0 w-full bg-white shadow-2xl rounded-t-3xl p-5 z-[1400] hidden
+            md:top-0 md:right-0 md:left-auto md:h-full md:w-96 md:rounded-none md:rounded-l-2xl">
 
-    <div class="flex justify-between items-center mb-3">
-        <h3 class="font-bold text-lg">Directions</h3>
-        <button onclick="closeDirections()" class="text-red-500 font-bold">✕</button>
+    <div class="flex justify-between items-center mb-4">
+        <div>
+            <h3 class="font-bold text-xl text-gray-800">Directions</h3>
+            <p class="text-xs text-gray-500">Walking route estimate</p>
+        </div>
+
+        <button onclick="closeDirections()" class="text-red-500 font-bold text-xl">×</button>
     </div>
 
-    <div id="routeOptions" class="space-y-2 mb-4"></div>
+    <div id="routeOptions" class="space-y-3 mb-4"></div>
     <div id="etaBox" class="text-sm text-gray-600 mb-4"></div>
 
     <button id="startNavBtn"
-        class="bg-green-600 text-white px-4 py-2 rounded-lg w-full hover:bg-green-700">
+        class="bg-green-600 text-white px-4 py-3 rounded-xl w-full hover:bg-green-700 font-medium">
         Start Navigation
     </button>
 
     <div id="rerouteNotice"
-        class="hidden text-orange-500 text-sm mt-2">
+        class="hidden text-orange-500 text-sm mt-3">
         Recalculating route...
     </div>
 </div>

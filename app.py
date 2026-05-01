@@ -16,6 +16,7 @@ app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
 #------------------------- MAIL CONFIG ------------------------#
+
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -40,6 +41,118 @@ def normalize_query(q):
     q = re.sub(r'[^a-z0-9 ]', '', q)
     q = re.sub(r'\s+', ' ', q).strip()
     return q
+
+#------------------------ REPORT GENERATION ------------------------#
+
+def generate_pdf_report(title, data):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+
+    elements = [
+        Paragraph(title, styles['Title']),
+        Spacer(1, 12)
+    ]
+
+    if isinstance(data, list) and data:
+        headers = list(data[0].keys())
+        table_data = [headers]
+        for row in data:
+            table_data.append([str(row.get(col, "")) for col in headers])
+    else:
+        table_data = [[str(data)]]
+
+    table = Table(table_data, hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{title.replace(' ', '_')}.pdf",
+        mimetype="application/pdf"
+    )
+
+#------------------------ EXCEL REPORT GENERATION ------------------------#
+
+def generate_excel_report(title, data):
+    buffer = BytesIO()
+    df = pd.DataFrame(data)
+
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Report', startrow=1)
+        worksheet = writer.sheets['Report']
+        worksheet.cell(row=1, column=1, value=title)
+
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{title.replace(' ', '_')}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+#------------------------ PDF REPORT GENERATION WITH STYLES ------------------------#
+
+def generate_pdf_report(title, data):
+    output = BytesIO()
+
+    doc = SimpleDocTemplate(output, pagesize=A4)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    elements.append(Paragraph(title, styles['Title']))
+    elements.append(Paragraph(
+        f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        styles['Normal']
+    ))
+    elements.append(Spacer(1, 12))
+
+    if not data:
+        elements.append(Paragraph("No records found.", styles['Normal']))
+    else:
+        headers = list(data[0].keys())
+        table_data = [headers]
+
+        for row in data:
+            table_data.append([str(row.get(h, "")) for h in headers])
+
+        table = Table(table_data, repeatRows=1)
+
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.green),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ]))
+
+        elements.append(table)
+
+    doc.build(elements)
+
+    output.seek(0)
+
+    filename = f"{title.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/pdf"
+    )
 
 
 #------------------------ CONTEXT PROCESSORS ------------------------#
@@ -843,6 +956,151 @@ def recents():
 def reports():
     return render_template('reports.html')
 
+#-------------------------- EXPORT REPORT API --------------------------#
+@app.route('/export-report')
+@admin_required
+def export_report():
+    report_type = request.args.get('report_type', 'users')
+    file_format = request.args.get('format', 'excel')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    title = "System Report"
+
+    if report_type == 'users':
+        title = "Users Report"
+        query = "SELECT id, username, email, role, created_at FROM users WHERE 1=1"
+        params = []
+
+        if start_date:
+            query += " AND DATE(created_at) >= %s"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND DATE(created_at) <= %s"
+            params.append(end_date)
+
+        query += " ORDER BY created_at DESC"
+        cursor.execute(query, params)
+        data = cursor.fetchall()
+
+    elif report_type == 'locations':
+        title = "Locations Report"
+        cursor.execute("""
+            SELECT 
+                b.id AS building_id,
+                b.name AS building_name,
+                b.latitude,
+                b.longitude,
+                r.name AS room_name,
+                r.floor,
+                r.description
+            FROM building b
+            LEFT JOIN room r ON r.building_id = b.id
+            ORDER BY b.name, r.name
+        """)
+        data = cursor.fetchall()
+
+    elif report_type == 'searches':
+        title = "Search Analytics Report"
+        query = """
+            SELECT 
+                s.location_name,
+                COUNT(*) AS search_count,
+                MAX(s.created_at) AS last_searched
+            FROM searches s
+            WHERE s.location_name IS NOT NULL AND s.location_name != ''
+        """
+        params = []
+
+        if start_date:
+            query += " AND DATE(s.created_at) >= %s"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND DATE(s.created_at) <= %s"
+            params.append(end_date)
+
+        query += """
+            GROUP BY s.location_name
+            ORDER BY search_count DESC
+        """
+
+        cursor.execute(query, params)
+        data = cursor.fetchall()
+
+    else:
+        title = "System Summary Report"
+        cursor.execute("SELECT COUNT(*) AS total_users FROM users")
+        total_users = cursor.fetchone()['total_users']
+
+        cursor.execute("SELECT COUNT(*) AS total_buildings FROM building")
+        total_buildings = cursor.fetchone()['total_buildings']
+
+        cursor.execute("SELECT COUNT(*) AS total_rooms FROM room")
+        total_rooms = cursor.fetchone()['total_rooms']
+
+        cursor.execute("SELECT COUNT(*) AS total_searches FROM searches")
+        total_searches = cursor.fetchone()['total_searches']
+
+        data = [{
+            "total_users": total_users,
+            "total_buildings": total_buildings,
+            "total_rooms": total_rooms,
+            "total_searches": total_searches,
+            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }]
+
+    cursor.close()
+    conn.close()
+
+    if file_format == 'pdf':
+        return generate_pdf_report(title, data)
+
+    return generate_excel_report(title, data)
+
+
+def generate_excel_report(title, data):
+    output = BytesIO()
+
+    df = pd.DataFrame(data)
+
+    if df.empty:
+        df = pd.DataFrame([{"Message": "No records found"}])
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name="Report")
+
+        workbook = writer.book
+        worksheet = writer.sheets["Report"]
+
+        worksheet.insert_rows(1)
+        worksheet["A1"] = title
+        worksheet["A2"] = f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        for column_cells in worksheet.columns:
+            max_length = 0
+            column_letter = column_cells[0].column_letter
+
+            for cell in column_cells:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+
+            worksheet.column_dimensions[column_letter].width = max_length + 3
+
+    output.seek(0)
+
+    filename = f"{title.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 #------------------- RUN APP -------------------#
 
