@@ -42,44 +42,6 @@ def normalize_query(q):
     q = re.sub(r'\s+', ' ', q).strip()
     return q
 
-#------------------------ REPORT GENERATION ------------------------#
-
-def generate_pdf_report(title, data):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-
-    elements = [
-        Paragraph(title, styles['Title']),
-        Spacer(1, 12)
-    ]
-
-    if isinstance(data, list) and data:
-        headers = list(data[0].keys())
-        table_data = [headers]
-        for row in data:
-            table_data.append([str(row.get(col, "")) for col in headers])
-    else:
-        table_data = [[str(data)]]
-
-    table = Table(table_data, hAlign='LEFT')
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
-    ]))
-
-    elements.append(table)
-    doc.build(elements)
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"{title.replace(' ', '_')}.pdf",
-        mimetype="application/pdf"
-    )
 
 #------------------------ EXCEL REPORT GENERATION ------------------------#
 
