@@ -541,7 +541,7 @@ function getRouteSmart(startLat, startLng, endLat, endLng, timeout = null) {
   routeLayers.forEach((layer) => map.removeLayer(layer));
   routeLayers = [];
 
-  if (distance <= 250) {
+  if (distance <= 25) {
     if (timeout) clearTimeout(timeout);
     drawDirectRoute(startLat, startLng, endLat, endLng, distance);
     return;
