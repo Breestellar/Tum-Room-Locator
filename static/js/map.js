@@ -66,20 +66,59 @@ let accuracyCircle = null;
 let watchId = null;
 let lastPosition = null;
 
-// LOAD BUILDINGS
-// Pins are hidden on initial load to keep the map clean.
-// Markers will appear only after the user searches/selects a location.
-/*
-fetch("/api/buildings")
-  .then((res) => res.json())
-  .then((data) => {
-    data.forEach((b) => {
-      L.marker([b.lat, b.lng])
-        .addTo(markersLayer)
-        .bindPopup(`<b>${b.name}</b>`);
-    });
-  });
-*/
+function loadLocationFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+
+  const lat = params.get("lat");
+  const lng = params.get("lng");
+  const name = params.get("name");
+  const building = params.get("building");
+  const floor = params.get("floor");
+  const instructions = params.get("instructions");
+
+  if (!lat || !lng || !name) return;
+
+  const latNum = parseFloat(lat);
+  const lngNum = parseFloat(lng);
+
+  if (Number.isNaN(latNum) || Number.isNaN(lngNum)) return;
+
+  const place = {
+    buildingId: null,
+    lat: latNum,
+    lng: lngNum,
+    buildingName: building || name,
+    roomName: name,
+    floor: floor || "",
+    instructions: instructions || "",
+    displayName: name,
+  };
+
+  selectedPlace = place;
+
+  destination = {
+    lat: latNum,
+    lng: lngNum,
+    name: name,
+  };
+
+  selectedRoomInstructions = instructions || "";
+  selectedFloor = floor || "";
+  selectedBuilding = building || name;
+
+  markersLayer.clearLayers();
+
+  L.marker([latNum, lngNum], { icon: selectedMarkerIcon })
+    .addTo(markersLayer)
+    .bindPopup(`<b>${name}</b>`)
+    .openPopup();
+
+  map.setView([latNum, lngNum], 18);
+
+  showPlaceInfo(place);
+}
+
+loadLocationFromUrl();
 
 // SEARCH
 input.addEventListener("input", () => {
@@ -994,4 +1033,30 @@ function resetMap() {
 
   let reroute = document.getElementById("rerouteNotice");
   if (reroute) reroute.classList.add("hidden");
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+
+const lat = urlParams.get("lat");
+const lng = urlParams.get("lng");
+const name = urlParams.get("name");
+
+if (lat && lng) {
+  const latNum = parseFloat(lat);
+  const lngNum = parseFloat(lng);
+
+  map.setView([latNum, lngNum], 18);
+
+  L.marker([latNum, lngNum])
+    .addTo(markersLayer)
+    .bindPopup(`<b>${name}</b>`)
+    .openPopup();
+
+  selectedPlace = {
+    buildingName: name,
+    lat: latNum,
+    lng: lngNum,
+  };
+
+  showPlaceInfo(selectedPlace);
 }

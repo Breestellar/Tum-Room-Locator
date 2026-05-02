@@ -912,21 +912,23 @@ def timetable():
 
     if role not in ['student', 'lecturer']:
         flash("Timetable is only available for students and lecturers.", "warning")
-        return redirect(url_for('map'))
+        return redirect(url_for('map_view'))
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT 
+        SELECT
             t.id,
             t.unit_name,
             t.day_of_week,
             t.start_time,
             t.end_time,
             t.lecturer_name,
+            r.id AS room_id,
             r.name AS room_name,
             r.floor,
+            r.instructions,
             b.name AS building_name,
             b.latitude,
             b.longitude
@@ -946,6 +948,125 @@ def timetable():
 
     return render_template('timetable.html', classes=classes)
 
+#-------------------------- ADMIN TIMETABLE --------------------------#
+
+@app.route('/admin/timetable')
+@admin_required
+def admin_timetable():
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT 
+            t.id,
+            t.user_role,
+            t.user_email,
+            t.unit_name,
+            t.day_of_week,
+            t.start_time,
+            t.end_time,
+            t.lecturer_name,
+            r.name AS room_name,
+            b.name AS building_name
+        FROM timetable t
+        LEFT JOIN room r ON t.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+                 t.start_time
+    """)
+    timetable_rows = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT 
+            r.id,
+            r.name AS room_name,
+            r.floor,
+            b.name AS building_name
+        FROM room r
+        LEFT JOIN building b ON r.building_id = b.id
+        ORDER BY b.name, r.name
+    """)
+    rooms = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        'admin_timetable.html',
+        timetable_rows=timetable_rows,
+        rooms=rooms
+    )
+
+#-------------------------- ADD TIMETABLE RECORD --------------------------#
+
+@app.route('/admin/add_timetable', methods=['POST'])
+@admin_required
+def add_timetable():
+    user_role = request.form['user_role']
+    user_email = request.form.get('user_email', '').strip().lower() or None
+    unit_name = request.form['unit_name']
+    room_id = request.form.get('room_id') or None
+    day_of_week = request.form['day_of_week']
+    start_time = request.form['start_time']
+    end_time = request.form['end_time']
+    lecturer_name = request.form.get('lecturer_name', '')
+
+    if user_role not in ['student', 'lecturer']:
+        flash("Invalid user role selected.", "danger")
+        return redirect(url_for('admin_timetable'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    if user_email:
+
+        if user_role == 'student' and not user_email.endswith('@students.tum.ac.ke'):
+            flash("Student email must end with @students.tum.ac.ke", "danger")
+            return redirect(url_for('admin_timetable'))
+
+        if user_role == 'lecturer' and not user_email.endswith('@tum.ac.ke'):
+            flash("Lecturer email must end with @tum.ac.ke", "danger")
+            return redirect(url_for('admin_timetable'))
+
+    cursor.execute("""
+        INSERT INTO timetable
+        (user_role, user_email, unit_name, room_id, day_of_week, start_time, end_time, lecturer_name)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """, (
+        user_role,
+        user_email,
+        unit_name,
+        room_id,
+        day_of_week,
+        start_time,
+        end_time,
+        lecturer_name
+    ))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash("Timetable record added successfully.", "success")
+    return redirect(url_for('admin_timetable'))
+
+#-------------------------- DELETE TIMETABLE RECORD --------------------------#
+
+@app.route('/admin/delete_timetable', methods=['POST'])
+@admin_required
+def delete_timetable():
+    timetable_id = request.form['id']
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM timetable WHERE id=%s", (timetable_id,))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash("Timetable record deleted.", "success")
+    return redirect(url_for('admin_timetable'))
 
 #-------------------------- REPORTS PAGE --------------------------#
 

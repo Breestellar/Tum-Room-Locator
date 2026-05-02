@@ -31,6 +31,7 @@
                     <td class="p-3">{{ c.building_name or 'Not assigned' }}</td>
                     <td class="p-3">
                         {{ c.room_name or 'Not assigned' }}
+
                         {% if c.floor %}
                             <span class="text-gray-400">(Floor {{ c.floor }})</span>
                         {% endif %}
@@ -38,12 +39,12 @@
                     <td class="p-3">{{ c.lecturer_name or '-' }}</td>
                     <td class="p-3">
                         {% if c.latitude and c.longitude %}
-                        <a href="/map?lat={{ c.latitude }}&lng={{ c.longitude }}&name={{ c.room_name or c.building_name }}"
-                           class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">
-                            Open Map
-                        </a>
+                            <a href="/map?lat={{ c.latitude }}&lng={{ c.longitude }}&name={{ c.room_name or c.building_name }}&building={{ c.building_name }}&floor={{ c.floor or '' }}&instructions={{ c.instructions or '' }}"
+                               class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">
+                                Open Map
+                            </a>
                         {% else %}
-                        <span class="text-gray-400">No location</span>
+                            <span class="text-gray-400">No location</span>
                         {% endif %}
                     </td>
                 </tr>

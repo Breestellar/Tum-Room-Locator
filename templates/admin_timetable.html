@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="max-w-7xl mx-auto p-6">
+
+    <h2 class="text-2xl font-bold text-green-700 mb-2">Timetable Management</h2>
+    <p class="text-gray-500 mb-6">
+        Add class schedules and link them to specific rooms.
+    </p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- ADD TIMETABLE FORM -->
+        <div class="bg-white rounded-xl shadow p-5">
+            <h3 class="font-semibold mb-4">Add Timetable Record</h3>
+
+            <form action="/admin/add_timetable" method="POST" class="space-y-3">
+
+                <div>
+                    <label for="user_role" class="text-sm text-gray-600">User Type</label>
+                    <select id="user_role" name="user_role" class="w-full border p-3 rounded-lg" required>
+                        <option value="student">Student</option>
+                        <option value="lecturer">Lecturer</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-600">Specific Email Optional</label>
+                    <input type="email"
+                           name="user_email"
+                           placeholder="student@students.tum.ac.ke or lecturer@tum.ac.ke"
+                           class="w-full border p-3 rounded-lg">
+                    <p class="text-xs text-gray-400 mt-1">
+                        Leave blank to apply to all users of selected type.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-600">Unit Name</label>
+                    <input type="text"
+                           name="unit_name"
+                           placeholder="e.g. Mobile Application Development"
+                           class="w-full border p-3 rounded-lg"
+                           required>
+                </div>
+
+                <div>
+                    <label for="room_id" class="text-sm text-gray-600">Room</label>
+                    <select id="room_id" name="room_id" class="w-full border p-3 rounded-lg" required>
+                        <option value="">Select room</option>
+                        {% for r in rooms %}
+                            <option value="{{ r.id }}">
+                                {{ r.building_name }} - {{ r.room_name }}
+                                {% if r.floor %}(Floor {{ r.floor }}){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="day_of_week" class="text-sm text-gray-600">Day</label>
+                    <select id="day_of_week" name="day_of_week" class="w-full border p-3 rounded-lg" required>
+                        <option>Monday</option>
+                        <option>Tuesday</option>
+                        <option>Wednesday</option>
+                        <option>Thursday</option>
+                        <option>Friday</option>
+                        <option>Saturday</option>
+                        <option>Sunday</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="start_time" class="text-sm text-gray-600">Start</label>
+                        <input id="start_time" type="time" name="start_time" title="Start time" class="w-full border p-3 rounded-lg" required>
+                    </div>
+
+                    <div>
+                        <label for="end_time" class="text-sm text-gray-600">End</label>
+                        <input id="end_time" type="time" name="end_time" title="End time" class="w-full border p-3 rounded-lg" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-600">Lecturer Name</label>
+                    <input type="text"
+                           name="lecturer_name"
+                           placeholder="e.g. Dr Mwakondo"
+                           class="w-full border p-3 rounded-lg">
+                </div>
+
+                <button class="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-green-700">
+                    Add Timetable
+                </button>
+
+            </form>
+        </div>
+
+        <!-- TIMETABLE LIST -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow p-5 overflow-x-auto">
+
+            <h3 class="font-semibold mb-4">Existing Timetable Records</h3>
+
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b bg-gray-50">
+                        <th class="text-left p-2">User Type</th>
+                        <th class="text-left p-2">Email</th>
+                        <th class="text-left p-2">Unit</th>
+                        <th class="text-left p-2">Room</th>
+                        <th class="text-left p-2">Day</th>
+                        <th class="text-left p-2">Time</th>
+                        <th class="text-left p-2">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for t in timetable_rows %}
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2">{{ t.user_role }}</td>
+                        <td class="p-2">{{ t.user_email or 'All' }}</td>
+                        <td class="p-2 font-medium">{{ t.unit_name }}</td>
+                        <td class="p-2">
+                            {{ t.building_name or 'N/A' }} -
+                            {{ t.room_name or 'N/A' }}
+                        </td>
+                        <td class="p-2">{{ t.day_of_week }}</td>
+                        <td class="p-2">{{ t.start_time }} - {{ t.end_time }}</td>
+                        <td class="p-2">
+                            <form action="/admin/delete_timetable" method="POST"
+                                  onsubmit="return confirm('Delete this timetable record?');">
+                                <input type="hidden" name="id" value="{{ t.id }}">
+                                <button class="text-red-600 hover:underline">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="p-6 text-center text-gray-500">
+                            No timetable records added yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
