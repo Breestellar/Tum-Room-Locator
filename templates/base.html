@@ -45,6 +45,11 @@
                     <a href="/manage_users" class="px-3 py-2 rounded hover:bg-green-800">Manage Users</a>
                     <a href="/reports" class="px-3 py-2 rounded hover:bg-green-800">Reports</a>
                 {% endif %}
+
+                {% if current_user.role == 'student' or current_user.role == 'lecturer' %}
+                    <a href="/timetable" class="px-3 py-2 rounded hover:bg-green-800">My Timetable</a>
+                {% endif %}
+
             </nav>
 
             <div class="mt-auto">
