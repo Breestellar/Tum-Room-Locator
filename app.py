@@ -217,7 +217,7 @@ def admin_required(f):
 
         if not user or user['role'] != "admin":
             flash("Unauthorized access", "danger")
-            return redirect(url_for("map"))
+            return redirect(url_for("map_view"))
 
         return f(*args, **kwargs)
     return decorated_function
@@ -742,7 +742,7 @@ def toggle_role():
         user = cursor.fetchone()
 
         if user:
-            new_role = "admin" if user["role"] == "user" else "user"
+            new_role = "admin" if user["role"] != "admin" else "student"
             cursor.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
             conn.commit()
 
