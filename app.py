@@ -1,7 +1,10 @@
+import email
 import re, os, random, pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
+
+from wtforms.validators import email
 from db import get_db
 from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session, send_file
 from flask_mail import Mail, Message
@@ -144,6 +147,18 @@ def register():
         password = request.form['password']
         confirm = request.form['confirm_password']
 
+        email = email.lower().strip()
+
+        if email.endswith("@students.tum.ac.ke"):
+            role = "student"
+        elif email.endswith("@tum.ac.ke"):
+            role = "lecturer"
+        else:
+            return render_template(
+                "register.html",
+                error="Only TUM students and lecturers can create accounts. Visitors can continue using the map without logging in."
+            )
+
         if password != confirm:
             return render_template('register.html', error="Passwords do not match")
 
@@ -162,8 +177,8 @@ def register():
         hashed = generate_password_hash(password)
 
         cursor.execute(
-            "INSERT INTO users (username, email, password, role) VALUES (%s, %s, %s, 'user')",
-            (username, email, hashed)
+            "INSERT INTO users (username, email, password, role) VALUES (%s, %s, %s, %s)",
+            (username, email, hashed, role)
     )
         conn.commit()
         cursor.close()
