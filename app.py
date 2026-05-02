@@ -253,6 +253,7 @@ def login():
 
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['email'] = user['email']
             session['role'] = user['role']
             session.permanent = True
 
@@ -899,6 +900,52 @@ def recents():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     return render_template('recents.html')
+
+
+#-------------------------- TIMETABLE PAGE --------------------------#
+
+@app.route('/timetable')
+@login_required
+def timetable():
+    role = session.get('role')
+    email = session.get('email')
+
+    if role not in ['student', 'lecturer']:
+        flash("Timetable is only available for students and lecturers.", "warning")
+        return redirect(url_for('map'))
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT 
+            t.id,
+            t.unit_name,
+            t.day_of_week,
+            t.start_time,
+            t.end_time,
+            t.lecturer_name,
+            r.name AS room_name,
+            r.floor,
+            b.name AS building_name,
+            b.latitude,
+            b.longitude
+        FROM timetable t
+        LEFT JOIN room r ON t.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        WHERE t.user_role=%s
+           OR t.user_email=%s
+        ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+                 t.start_time
+    """, (role, email))
+
+    classes = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template('timetable.html', classes=classes)
+
 
 #-------------------------- REPORTS PAGE --------------------------#
 
