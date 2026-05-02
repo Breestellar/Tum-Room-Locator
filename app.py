@@ -233,14 +233,21 @@ def login():
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
 
-        username = request.form['username']
+        email = request.form['email'].lower().strip()
         password = request.form['password']
 
-        cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
 
         cursor.close()
         conn.close()
+
+        if user['role'] != 'admin':
+            if not (
+                user['email'].endswith("@students.tum.ac.ke") or
+                user['email'].endswith("@tum.ac.ke")
+            ):
+                return render_template("login.html", error="Only TUM organization emails can log in.")
 
         if user and check_password_hash(user['password'], password):
 
@@ -265,50 +272,6 @@ def account():
         return redirect(url_for('login'))
 
     return render_template('account.html')
-
-#------------------------- CHANGE EMAIL ------------------------#
-
-@app.route('/change-email', methods=['GET', 'POST'])
-@login_required
-def change_email():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    if request.method == 'POST':
-        new_email = request.form['email']
-
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("SELECT id FROM users WHERE email=%s", (new_email,))
-        existing = cursor.fetchone()
-
-        if existing:
-            flash('Email already in use', 'danger')
-            cursor.close()
-            conn.close()
-            return redirect(url_for('change_email'))
-
-        try:
-            cursor.execute(
-                "UPDATE users SET email=%s WHERE id=%s",
-                (new_email, session['user_id'])
-            )
-            conn.commit()
-
-        except Exception as e:
-            conn.rollback()
-            flash('Error updating email', 'danger')
-            print(e)
-
-        cursor.close()
-        conn.close()
-
-        flash('Email updated successfully', 'success')
-        return redirect(url_for('account'))
-
-    return render_template('change_email.html')
-
 
 #------------------------- FORGOT PASSWORD ------------------------#
 @app.route('/forgot-password', methods=['GET', 'POST'])
