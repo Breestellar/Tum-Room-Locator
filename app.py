@@ -229,12 +229,11 @@ def admin_required(f):
 def login():
 
     if request.method == 'POST':
+        email = request.form['email'].lower().strip()
+        password = request.form['password']
 
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
-
-        email = request.form['email'].lower().strip()
-        password = request.form['password']
 
         cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
@@ -250,9 +249,13 @@ def login():
                 user['email'].endswith("@students.tum.ac.ke") or
                 user['email'].endswith("@tum.ac.ke")
             ):
-                return render_template("login.html", error="Only TUM organization emails can log in.")
+                return render_template(
+                    "login.html",
+                    error="Only TUM organization emails can log in."
+                )
 
         if check_password_hash(user['password'], password):
+            session.clear()
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['email'] = user['email']
@@ -263,6 +266,7 @@ def login():
 
         return render_template('login.html', error="Invalid credentials")
 
+    return render_template('login.html')
 
 #------------------------- ACCOUNT PAGE ------------------------#
 
