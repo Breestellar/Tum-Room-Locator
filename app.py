@@ -1,10 +1,7 @@
-import email
 import re, os, random, pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
-
-from wtforms.validators import email
 from db import get_db
 from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session, send_file
 from flask_mail import Mail, Message
