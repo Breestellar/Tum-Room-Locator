@@ -242,6 +242,9 @@ def login():
         cursor.close()
         conn.close()
 
+        if not user:
+            return render_template('login.html', error="Invalid credentials")
+
         if user['role'] != 'admin':
             if not (
                 user['email'].endswith("@students.tum.ac.ke") or
@@ -249,8 +252,7 @@ def login():
             ):
                 return render_template("login.html", error="Only TUM organization emails can log in.")
 
-        if user and check_password_hash(user['password'], password):
-
+        if check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['email'] = user['email']
@@ -260,8 +262,6 @@ def login():
             return redirect('/admin' if user['role'] == 'admin' else '/map')
 
         return render_template('login.html', error="Invalid credentials")
-
-    return render_template('login.html')
 
 
 #------------------------- ACCOUNT PAGE ------------------------#
