@@ -910,43 +910,80 @@ def timetable():
     role = session.get('role')
     email = session.get('email')
 
-    if role not in ['student', 'lecturer']:
-        flash("Timetable is only available for students and lecturers.", "warning")
-        return redirect(url_for('map_view'))
-
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT
-            t.id,
-            t.unit_name,
-            t.day_of_week,
-            t.start_time,
-            t.end_time,
-            t.lecturer_name,
-            r.id AS room_id,
-            r.name AS room_name,
-            r.floor,
-            r.instructions,
-            b.name AS building_name,
-            b.latitude,
-            b.longitude
-        FROM timetable t
-        LEFT JOIN room r ON t.room_id = r.id
-        LEFT JOIN building b ON r.building_id = b.id
-        WHERE t.user_role=%s
-           OR t.user_email=%s
-        ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
-                 t.start_time
-    """, (role, email))
+    if role == 'student':
+        cursor.execute("SELECT programme_id FROM users WHERE id=%s", (session['user_id'],))
+        user = cursor.fetchone()
+
+        if not user or not user['programme_id']:
+            flash("Your programme is not assigned yet.", "warning")
+            cursor.close()
+            conn.close()
+            return render_template('timetable.html', classes=[])
+
+        cursor.execute("""
+            SELECT
+                t.id,
+                t.unit_name,
+                t.day_of_week,
+                t.start_time,
+                t.end_time,
+                t.lecturer_name,
+                r.id AS room_id,
+                r.name AS room_name,
+                r.floor,
+                r.instructions,
+                b.name AS building_name,
+                b.latitude,
+                b.longitude
+            FROM timetable t
+            JOIN timetable_programme tp ON tp.timetable_id = t.id
+            LEFT JOIN room r ON t.room_id = r.id
+            LEFT JOIN building b ON r.building_id = b.id
+            WHERE tp.programme_id=%s
+            ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+                     t.start_time
+        """, (user['programme_id'],))
+
+    elif role == 'lecturer':
+        cursor.execute("""
+            SELECT
+                t.id,
+                t.unit_name,
+                t.day_of_week,
+                t.start_time,
+                t.end_time,
+                t.lecturer_name,
+                r.id AS room_id,
+                r.name AS room_name,
+                r.floor,
+                r.instructions,
+                b.name AS building_name,
+                b.latitude,
+                b.longitude
+            FROM timetable t
+            JOIN timetable_lecturer tl ON tl.timetable_id = t.id
+            LEFT JOIN room r ON t.room_id = r.id
+            LEFT JOIN building b ON r.building_id = b.id
+            WHERE tl.lecturer_email=%s
+            ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+                     t.start_time
+        """, (email,))
+
+    else:
+        cursor.close()
+        conn.close()
+        flash("Timetable is only available for students and lecturers.", "warning")
+        return redirect(url_for('map_view'))
 
     classes = cursor.fetchall()
-
     cursor.close()
     conn.close()
 
     return render_template('timetable.html', classes=classes)
+
 
 #-------------------------- ADMIN TIMETABLE --------------------------#
 
