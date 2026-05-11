@@ -17,6 +17,20 @@
             <form action="/admin/add_timetable" method="POST" class="space-y-3">
 
                 <div>
+                    <label for="programme_ids" class="text-sm text-gray-600">Programmes</label>
+                    <select id="programme_ids" name="programme_ids" multiple class="w-full border p-3 rounded-lg h-40">
+                        {% for p in programmes %}
+                            <option value="{{ p.id }}">
+                                {{ p.code }} - {{ p.name }} ({{ p.department_name }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Hold CTRL to select multiple programmes.
+                    </p>
+                </div>
+
+                <div>
                     <label for="user_role" class="text-sm text-gray-600">User Type</label>
                     <select id="user_role" name="user_role" class="w-full border p-3 rounded-lg" required>
                         <option value="student">Student</option>
@@ -83,11 +97,17 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-600">Lecturer Name</label>
-                    <input type="text"
+                    <label for="lecturer_name" class="text-sm text-gray-600">Lecturer Name</label>
+                    <input id="lecturer_name" type="text"
                            name="lecturer_name"
                            placeholder="e.g. Dr Mwakondo"
                            class="w-full border p-3 rounded-lg">
+                </div>
+                <div>
+                    <label for="lecturer_emails" class="text-sm text-gray-600">Lecturer Emails</label>
+                    <textarea id="lecturer_emails" name="lecturer_emails"
+                              placeholder="lecturer1@tum.ac.ke, lecturer2@tum.ac.ke"
+                              class="w-full border p-3 rounded-lg"></textarea>
                 </div>
 
                 <button class="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-green-700">

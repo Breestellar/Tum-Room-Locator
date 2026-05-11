@@ -994,7 +994,7 @@ def admin_timetable():
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT 
+        SELECT
             t.id,
             t.user_role,
             t.user_email,
@@ -1014,7 +1014,7 @@ def admin_timetable():
     timetable_rows = cursor.fetchall()
 
     cursor.execute("""
-        SELECT 
+        SELECT
             r.id,
             r.name AS room_name,
             r.floor,
@@ -1025,13 +1025,27 @@ def admin_timetable():
     """)
     rooms = cursor.fetchall()
 
+    cursor.execute("""
+        SELECT
+            p.id,
+            p.code,
+            p.name,
+            d.name AS department_name,
+            s.name AS school_name
+        FROM programme p
+        JOIN department d ON p.department_id = d.id
+        JOIN school s ON d.school_id = s.id
+        ORDER BY s.name, d.name, p.code
+    """)
+    programmes = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
     return render_template(
         'admin_timetable.html',
         timetable_rows=timetable_rows,
-        rooms=rooms
+        rooms=rooms, programmes=programmes
     )
 
 #-------------------------- ADD TIMETABLE RECORD --------------------------#
@@ -1078,6 +1092,24 @@ def add_timetable():
         end_time,
         lecturer_name
     ))
+
+    timetable_id = cursor.lastrowid
+
+    programme_ids = request.form.getlist('programme_ids')
+    for programme_id in programme_ids:
+        cursor.execute("""
+            INSERT INTO timetable_programme (timetable_id, programme_id)
+            VALUES (%s, %s)
+        """, (timetable_id, programme_id))
+
+    lecturer_emails = request.form.get('lecturer_emails', '')
+    for lec_email in lecturer_emails.split(','):
+        lec_email = lec_email.strip().lower()
+        if lec_email:
+            cursor.execute("""
+                INSERT INTO timetable_lecturer (timetable_id, lecturer_email)
+                VALUES (%s, %s)
+            """, (timetable_id, lec_email))
 
     conn.commit()
     cursor.close()
