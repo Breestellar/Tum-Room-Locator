@@ -189,14 +189,14 @@ input.addEventListener("input", () => {
 });
 
 // LOG SEARCHES
-function logSearch(locationName) {
+function logSearch(place) {
   fetch("/api/log-search", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      location_name: locationName,
+      location_name: place.displayName,
+      building_id: place.buildingId,
+      room_id: place.roomId || null,
     }),
   }).catch((error) => console.warn("Search log failed:", error));
 }
@@ -263,7 +263,7 @@ function selectLocation(
     floor,
   });
 
-  logSearch(displayName);
+  logSearch(selectedPlace);
 }
 
 // PLACE INFO PANEL

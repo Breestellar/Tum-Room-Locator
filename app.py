@@ -800,20 +800,27 @@ def search():
 @app.route('/api/log-search', methods=['POST'])
 def log_search():
     data = request.get_json()
+
     location_name = data.get('location_name', '').strip()
+    building_id = data.get('building_id')
+    room_id = data.get('room_id')
+    user_id = session.get('user_id')
+    visitor_token = session.get('visitor_token')
+
+    if not visitor_token:
+        visitor_token = os.urandom(16).hex()
+        session['visitor_token'] = visitor_token
 
     if not location_name:
         return jsonify({"status": "ignored"})
 
-    user_id = session.get('user_id')  # None for visitors
-
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "INSERT INTO searches (user_id, location_name) VALUES (%s, %s)",
-        (user_id, location_name)
-    )
+    cursor.execute("""
+        INSERT INTO searches (user_id, visitor_token, building_id, room_id, location_name)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (user_id, visitor_token, building_id, room_id, location_name))
 
     conn.commit()
     cursor.close()
@@ -894,12 +901,58 @@ def api_rooms(building_id):
 
 #-------------------------- RECENTS PAGE --------------------------#
 
-@app.route('/recents')
+@app.route('/api/recents')
 @login_required
-def recents():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    return render_template('recents.html')
+def api_recents():
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM recent_locations
+        WHERE user_id=%s
+        ORDER BY created_at DESC
+        LIMIT 10
+    """, (session['user_id'],))
+
+    recents = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return jsonify(recents)
+
+
+#-------------------------- SAVE RECENT LOCATION API --------------------------#
+
+@app.route('/api/recents', methods=['POST'])
+@login_required
+def save_recent_location():
+    data = request.get_json()
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM recent_locations
+        WHERE user_id=%s AND location_name=%s
+    """, (session['user_id'], data.get('location_name')))
+
+    cursor.execute("""
+        INSERT INTO recent_locations
+        (user_id, building_id, room_id, location_name)
+        VALUES (%s, %s, %s, %s)
+    """, (
+        session['user_id'],
+        data.get('building_id'),
+        data.get('room_id'),
+        data.get('location_name')
+    ))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
 
 
 #-------------------------- TIMETABLE PAGE --------------------------#
