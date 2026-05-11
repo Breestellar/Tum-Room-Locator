@@ -76,8 +76,7 @@
 </div>
 
 <script>
-        window.IS_LOGGED_IN = {{ 'true' if 'user_id' in session else 'false' | safe }};
-
+    window.IS_LOGGED_IN = JSON.parse('{{ "true" if "user_id" in session else "false" }}');
 </script>
 
 <script>
@@ -92,9 +91,9 @@ function toggleSidebar() {
     if (overlay) {
         overlay.classList.toggle('hidden');
     }
-
 }
 </script>
+
 
 </body>
 </html>
