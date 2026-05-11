@@ -20,6 +20,23 @@
         <input type="email" name="email" placeholder="Email" 
             class="w-full p-2 border rounded" required>
 
+        <div>
+            <label for="programme_id" class="text-sm text-gray-600">Programme</label>
+            <select name="programme_id" id="programme_id" class="w-full p-2 border rounded">
+                <option value="">Select programme if you are a student</option>
+
+                {% for p in programmes %}
+                    <option value="{{ p.id }}">
+                        {{ p.code }} - {{ p.name }} ({{ p.department_name }})
+                    </option>
+                {% endfor %}
+            </select>
+
+            <p class="text-xs text-gray-400 mt-1">
+                Required for students. Lecturers can leave this blank.
+            </p>
+        </div>
+
         <input type="password" name="password" placeholder="Password"
             class="w-full p-2 border rounded" required>
 

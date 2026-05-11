@@ -135,55 +135,98 @@ def home():
 
 #------------------------- REGISTRATION ------------------------#
 
+#------------------------- REGISTRATION ------------------------#
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
 
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT 
+            p.id,
+            p.code,
+            p.name,
+            d.name AS department_name
+        FROM programme p
+        JOIN department d ON p.department_id = d.id
+        ORDER BY p.code
+    """)
+    programmes = cursor.fetchall()
+
     if request.method == 'POST':
-        email = request.form['email']
+        email = request.form['email'].lower().strip()
         username = request.form['username']
         password = request.form['password']
         confirm = request.form['confirm_password']
-
-        email = email.lower().strip()
+        programme_id = request.form.get('programme_id') or None
 
         if email.endswith("@students.tum.ac.ke"):
             role = "student"
+
+            if not programme_id:
+                cursor.close()
+                conn.close()
+                return render_template(
+                    'register.html',
+                    programmes=programmes,
+                    error="Please select your programme."
+                )
+
         elif email.endswith("@tum.ac.ke"):
             role = "lecturer"
+            programme_id = None
         else:
+            cursor.close()
+            conn.close()
             return render_template(
                 "register.html",
+                programmes=programmes,
                 error="Only TUM students and lecturers can create accounts. Visitors can continue using the map without logging in."
             )
 
         if password != confirm:
-            return render_template('register.html', error="Passwords do not match")
+            cursor.close()
+            conn.close()
+            return render_template(
+                'register.html',
+                programmes=programmes,
+                error="Passwords do not match"
+            )
 
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-
-        # check duplicates
-        cursor.execute("SELECT id FROM users WHERE username=%s OR email=%s", (username, email))
+        cursor.execute(
+            "SELECT id FROM users WHERE username=%s OR email=%s",
+            (username, email)
+        )
         existing = cursor.fetchone()
 
         if existing:
             cursor.close()
             conn.close()
-            return render_template('register.html', error="Username or Email already exists")
+            return render_template(
+                'register.html',
+                programmes=programmes,
+                error="Username or Email already exists"
+            )
 
         hashed = generate_password_hash(password)
 
-        cursor.execute(
-            "INSERT INTO users (username, email, password, role) VALUES (%s, %s, %s, %s)",
-            (username, email, hashed, role)
-    )
+        cursor.execute("""
+            INSERT INTO users (username, email, password, role, programme_id)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (username, email, hashed, role, programme_id))
+
         conn.commit()
         cursor.close()
         conn.close()
 
         return redirect('/login')
 
-    return render_template('register.html')
+    cursor.close()
+    conn.close()
+
+    return render_template('register.html', programmes=programmes)
 
 #------------------------- LOGIN REQUIRED DECORATOR ------------------------#
 
@@ -914,6 +957,14 @@ def api_rooms(building_id):
     return jsonify(rooms)
 
 #-------------------------- RECENTS PAGE --------------------------#
+
+@app.route('/recents')
+@login_required
+def recents():
+    return render_template('recents.html')
+
+
+#-------------------------- RECENTS API --------------------------#
 
 @app.route('/api/recents')
 @login_required
