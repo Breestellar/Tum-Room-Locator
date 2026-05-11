@@ -36,8 +36,23 @@
                     {% endfor %}
                 </select>
 
-                <input type="text" name="name" placeholder="Building name"
+                <input type="text" name="name" placeholder="Location name"
                     class="w-full border p-2 rounded" required>
+
+                <label for="location_type" class="text-sm font-medium text-gray-700">Location type</label>
+                <select id="location_type" name="location_type" class="w-full border p-2 rounded">
+                    <option value="building">Building</option>
+                    <option value="gate">Gate</option>
+                    <option value="parking">Parking</option>
+                    <option value="office">Office</option>
+                    <option value="facility">Facility</option>
+                    <option value="landmark">Landmark</option>
+                </select>
+
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="has_rooms" value="1" checked>
+                    This location has rooms
+                </label>
 
                 <!-- Coordinates -->
                 <div class="grid grid-cols-2 gap-2">

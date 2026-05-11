@@ -497,17 +497,22 @@ def add_building():
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return "Coordinates out of range", 400
 
+    location_type = request.form.get('location_type', 'building')
+    has_rooms = 1 if request.form.get('has_rooms') else 0
+
     conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO building (campus_id, name, latitude, longitude)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO building (campus_id, name, latitude, longitude, location_type, has_rooms)
+        VALUES (%s, %s, %s, %s, %s, %s)
     """, (
         request.form['campus_id'],
         request.form['name'],
         lat,
-        lng
+        lng,
+        location_type,
+        has_rooms
     ))
 
     conn.commit()
@@ -771,18 +776,22 @@ def search():
     cursor = conn.cursor(dictionary=True)
 
     sql = """
-        SELECT b.id AS building_id,
-               b.name AS building_name,
-               b.latitude AS lat,
-               b.longitude AS lng,
-               r.name AS room_name,
-               r.floor,
-               r.instructions
+        SELECT 
+            b.id AS building_id,
+            b.name AS building_name,
+            b.latitude AS lat,
+            b.longitude AS lng,
+            b.location_type,
+            b.has_rooms,
+            r.id AS room_id,
+            r.name AS room_name,
+            r.floor,
+            r.instructions
         FROM building b
         LEFT JOIN room r ON r.building_id = b.id
         WHERE
             LOWER(b.name) LIKE %s
-            OR (r.name IS NOT NULL AND LOWER (r.name) LIKE %s)
+            OR (r.name IS NOT NULL AND LOWER(r.name) LIKE %s)
         LIMIT 10
     """
 
@@ -847,7 +856,9 @@ def api_buildings():
             'id': b['id'],
             'name': b['name'],
             'lat': float(b['latitude']),
-            'lng': float(b['longitude'])
+            'lng': float(b['longitude']),
+            'location_type': b.get('location_type', 'building'),
+            'has_rooms': bool(b.get('has_rooms', True))
         } for b in buildings
     ])
 
@@ -861,7 +872,7 @@ def building_search():
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT id, name, latitude AS lat, longitude AS lng
+        SELECT id, name, latitude AS lat, longitude AS lng, location_type, has_rooms
         FROM building
         WHERE LOWER(name) LIKE %s
         ORDER BY name
@@ -878,7 +889,9 @@ def building_search():
             "id": b["id"],
             "name": b["name"],
             "lat": float(b["lat"]),
-            "lng": float(b["lng"])
+            "lng": float(b["lng"]),
+            "location_type": b.get("location_type", "building"),
+            "has_rooms": bool(b.get("has_rooms", True))
         }
         for b in buildings
     ])
