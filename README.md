@@ -2,7 +2,7 @@ Tum Room Locator
 
 Tum Room Locator is a campus navigation system designed to solve a simple but frustrating problem: people know the building they want, but don’t know how to get there efficiently.
 
-Most campus maps only show locations. This project focuses on guiding users in real time — providing step-by-step directions, live tracking, and automatic rerouting when they go off course.
+Most campus maps only show locations. This project focuses on guiding users in real time. Providing step-by-step directions, live tracking, and automatic rerouting when they go off course.
 
 The Problem
 
