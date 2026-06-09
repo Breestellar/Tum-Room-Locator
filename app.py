@@ -135,8 +135,6 @@ def home():
 
 #------------------------- REGISTRATION ------------------------#
 
-#------------------------- REGISTRATION ------------------------#
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
 
@@ -155,12 +153,26 @@ def register():
     """)
     programmes = cursor.fetchall()
 
+    cursor.execute("""
+        SELECT 
+            c.id,
+            c.code,
+            c.year_of_study,
+            p.code AS programme_code,
+            p.name AS programme_name
+        FROM cohort c
+        JOIN programme p ON c.programme_id = p.id
+        ORDER BY p.code, c.code
+    """)
+    cohorts = cursor.fetchall()
+
     if request.method == 'POST':
         email = request.form['email'].lower().strip()
         username = request.form['username']
         password = request.form['password']
         confirm = request.form['confirm_password']
         programme_id = request.form.get('programme_id') or None
+        cohort_id = request.form.get('cohort_id') or None
 
         if email.endswith("@students.tum.ac.ke"):
             role = "student"
@@ -171,7 +183,18 @@ def register():
                 return render_template(
                     'register.html',
                     programmes=programmes,
+                    cohorts=cohorts,
                     error="Please select your programme."
+                )
+
+            if not cohort_id:
+                cursor.close()
+                conn.close()
+                return render_template(
+                    'register.html',
+                    programmes=programmes,
+                    cohorts=cohorts,
+                    error="Please select your class group/cohort."
                 )
 
         elif email.endswith("@tum.ac.ke"):
@@ -183,6 +206,7 @@ def register():
             return render_template(
                 "register.html",
                 programmes=programmes,
+                cohorts=cohorts,
                 error="Only TUM students and lecturers can create accounts. Visitors can continue using the map without logging in."
             )
 
@@ -192,6 +216,7 @@ def register():
             return render_template(
                 'register.html',
                 programmes=programmes,
+                cohorts=cohorts,
                 error="Passwords do not match"
             )
 
@@ -207,15 +232,16 @@ def register():
             return render_template(
                 'register.html',
                 programmes=programmes,
+                cohorts=cohorts,
                 error="Username or Email already exists"
             )
 
         hashed = generate_password_hash(password)
 
         cursor.execute("""
-            INSERT INTO users (username, email, password, role, programme_id)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (username, email, hashed, role, programme_id))
+            INSERT INTO users (username, email, password, role, programme_id, cohort_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (username, email, hashed, role, programme_id, cohort_id))
 
         conn.commit()
         cursor.close()
@@ -226,7 +252,7 @@ def register():
     cursor.close()
     conn.close()
 
-    return render_template('register.html', programmes=programmes)
+    return render_template('register.html', programmes=programmes, cohorts=cohorts)
 
 #------------------------- LOGIN REQUIRED DECORATOR ------------------------#
 
@@ -813,14 +839,13 @@ def map_view():
 
 @app.route('/api/search')
 def search():
-
     query = request.args.get('q', '').lower().strip()
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
-    sql = """
-        SELECT 
+    cursor.execute("""
+        SELECT
             b.id AS building_id,
             b.name AS building_name,
             b.latitude AS lat,
@@ -833,15 +858,12 @@ def search():
             r.instructions
         FROM building b
         LEFT JOIN room r ON r.building_id = b.id
-        WHERE
-            LOWER(b.name) LIKE %s
-            OR (r.name IS NOT NULL AND LOWER(r.name) LIKE %s)
+        WHERE LOWER(b.name) LIKE %s
+           OR (r.name IS NOT NULL AND LOWER(r.name) LIKE %s)
         LIMIT 10
-    """
+    """, (f"%{query}%", f"%{query}%"))
 
-    cursor.execute(sql, (f"%{query}%", f"%{query}%"))
     results = cursor.fetchall()
-
     cursor.close()
     conn.close()
 
@@ -1032,7 +1054,7 @@ def timetable():
     cursor = conn.cursor(dictionary=True)
 
     if role == 'student':
-        cursor.execute("SELECT programme_id FROM users WHERE id=%s", (session['user_id'],))
+        cursor.execute("SELECT programme_id, cohort_id FROM users WHERE id=%s", (session['user_id'],))
         user = cursor.fetchone()
 
         if not user or not user['programme_id']:
@@ -1057,13 +1079,14 @@ def timetable():
                 b.latitude,
                 b.longitude
             FROM timetable t
-            JOIN timetable_programme tp ON tp.timetable_id = t.id
+            LEFT JOIN timetable_cohort tc ON tc.timetable_id = t.id
+            LEFT JOIN timetable_programme tp ON tp.timetable_id = t.id
             LEFT JOIN room r ON t.room_id = r.id
             LEFT JOIN building b ON r.building_id = b.id
-            WHERE tp.programme_id=%s
+            WHERE tc.cohort_id=%s OR tp.programme_id=%s
             ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
-                     t.start_time
-        """, (user['programme_id'],))
+                    t.start_time
+        """, (user['cohort_id'], user['programme_id']))
 
     elif role == 'lecturer':
         cursor.execute("""
@@ -1157,13 +1180,26 @@ def admin_timetable():
     """)
     programmes = cursor.fetchall()
 
+    cursor.execute("""
+        SELECT
+            c.id,
+            c.code,
+            c.year_of_study,
+            p.code AS programme_code,
+            p.name AS programme_name
+        FROM cohort c
+        JOIN programme p ON c.programme_id = p.id
+        ORDER BY p.code, c.code
+    """)
+    cohorts = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
     return render_template(
         'admin_timetable.html',
         timetable_rows=timetable_rows,
-        rooms=rooms, programmes=programmes
+        rooms=rooms, programmes=programmes, cohorts=cohorts
     )
 
 #-------------------------- ADD TIMETABLE RECORD --------------------------#
@@ -1219,6 +1255,13 @@ def add_timetable():
             INSERT INTO timetable_programme (timetable_id, programme_id)
             VALUES (%s, %s)
         """, (timetable_id, programme_id))
+
+    cohort_ids = request.form.getlist('cohort_ids')
+    for cohort_id in cohort_ids:
+        cursor.execute("""
+            INSERT INTO timetable_cohort (timetable_id, cohort_id)
+            VALUES (%s, %s)
+        """, (timetable_id, cohort_id))
 
     lecturer_emails = request.form.get('lecturer_emails', '')
     for lec_email in lecturer_emails.split(','):

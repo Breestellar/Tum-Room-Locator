@@ -37,6 +37,23 @@
             </p>
         </div>
 
+        <div>
+            <label for="cohort_id" class="text-sm text-gray-600">Class Group / Cohort</label>
+            <select id="cohort_id" name="cohort_id" class="w-full p-2 border rounded">
+                <option value="">Select your class group</option>
+
+                {% for c in cohorts %}
+                    <option value="{{ c.id }}">
+                        {{ c.code }} - Year {{ c.year_of_study }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <p class="text-xs text-gray-400 mt-1">
+                Required for students. Example: BSIT/SEP2022/J/S-FT.
+            </p>
+        </div>
+
         <input type="password" name="password" placeholder="Password"
             class="w-full p-2 border rounded" required>
 

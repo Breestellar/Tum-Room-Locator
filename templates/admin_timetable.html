@@ -31,6 +31,20 @@
                 </div>
 
                 <div>
+                    <label for="cohort_ids" class="text-sm text-gray-600">Class Groups / Cohorts</label>
+                    <select id="cohort_ids" name="cohort_ids" multiple class="w-full border p-3 rounded-lg h-40">
+                        {% for c in cohorts %}
+                            <option value="{{ c.id }}">
+                                {{ c.code }} - {{ c.programme_code }} Year {{ c.year_of_study }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Hold CTRL to select multiple cohorts.
+                    </p>
+                </div>
+
+                <div>
                     <label for="user_role" class="text-sm text-gray-600">User Type</label>
                     <select id="user_role" name="user_role" class="w-full border p-3 rounded-lg" required>
                         <option value="student">Student</option>
