@@ -28,8 +28,8 @@ document.addEventListener("DOMContentLoaded", () => {
               </p>
             </div>
 
-            <a href="/map"
-               class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+            <a href="/map?lat=${item.lat}&lng=${item.lng}&name=${encodeURIComponent(item.location_name)}"
+                class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
               Open Map
             </a>
           </div>

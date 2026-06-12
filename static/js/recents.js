@@ -15,6 +15,8 @@ function saveRecent(place) {
         building_id: place.buildingId || null,
         room_id: place.roomId || null,
         location_name: locationName,
+        lat: place.lat,
+        lng: place.lng,
       }),
     }).catch((error) => console.warn("Recent save failed:", error));
 
