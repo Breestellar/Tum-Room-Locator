@@ -5,6 +5,7 @@ from io import BytesIO
 from db import get_db
 from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, session, send_file
 from flask_mail import Mail, Message
+from flask_wtf.csrf import CSRFProtect 
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
@@ -13,8 +14,37 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
 load_dotenv()
 
+import secrets
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev_fallback_key")
+csrf = CSRFProtect(app)
+
+
+# Fail loudly at startup if critical env vars are missing
+assert os.getenv("SECRET_KEY"), "SECRET_KEY environment variable must be set"
+assert os.getenv("DB_HOST"), "DB_HOST environment variable must be set"
+assert os.getenv("MAIL_USERNAME"), "MAIL_USERNAME environment variable must be set"
+
+app.secret_key = os.getenv("SECRET_KEY")
+
+# Secure session cookie settings
+app.config['SESSION_COOKIE_SECURE'] = True      # only sent over HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True     # not accessible via JavaScript
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'   # CSRF protection layer
+app.config['SESSION_COOKIE_SECURE'] = os.getenv("FLASK_ENV") != "development"
+
+
+# Rate limiter setup
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://"
+)
+
+
 #------------------------- MAIL CONFIG ------------------------#
 
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -292,6 +322,7 @@ def admin_required(f):
 #------------------------- LOGIN ------------------------#
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
 
     if request.method == 'POST':
@@ -346,6 +377,7 @@ def account():
 
 #------------------------- FORGOT PASSWORD ------------------------#
 @app.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def forgot_password():
     if request.method == 'POST':
         email = request.form['email']
@@ -359,10 +391,12 @@ def forgot_password():
         if user:
             otp = str(random.randint(100000, 999999))
             expiry = datetime.now() + timedelta(minutes=5)
+            hashed_otp = generate_password_hash(otp)
+
 
             cursor.execute(
                 "UPDATE users SET otp=%s, otp_expiry=%s WHERE email=%s",
-                (otp, expiry, email)
+                (hashed_otp, expiry, email)
             )
             conn.commit()
 
@@ -395,6 +429,7 @@ It expires in 5 minutes.
 
 #------------------------- PASSWORD RESET ------------------------#
 @app.route('/reset-password', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def reset_password():
 
     email = request.args.get('email')
@@ -421,15 +456,15 @@ def reset_password():
             flash('User not found', 'danger')
             return redirect(url_for('forgot_password'))
 
-        # check OTP
-        if user['otp'] != otp:
-            flash('Invalid OTP', 'danger')
-            return redirect(url_for('reset_password', email=email))
-
-        # check expiry
+        # check expiry first
         if datetime.now() > user['otp_expiry']:
             flash('OTP expired. Request a new one.', 'danger')
             return redirect(url_for('forgot_password'))
+
+        # check OTP
+        if not user['otp'] or not check_password_hash(user['otp'], otp):
+            flash('Invalid OTP', 'danger')
+            return redirect(url_for('reset_password', email=email))
 
         # update password
         hashed = generate_password_hash(password)
@@ -809,23 +844,41 @@ def delete_user():
 @admin_required
 def toggle_role():
     user_id = request.form.get("user_id")
-    if user_id:
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
 
-        cursor.execute("SELECT role FROM users WHERE id=%s", (user_id,))
-        user = cursor.fetchone()
+    if not user_id:
+        return redirect(url_for("manage_users"))
 
-        if user:
-            new_role = "admin" if user["role"] != "admin" else "student"
-            cursor.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
-            conn.commit()
+    # Prevent admin from toggling their own role
+    if str(user_id) == str(session.get("user_id")):
+        flash("You cannot change your own role.", "danger")
+        return redirect(url_for("manage_users"))
 
-        cursor.close()
-        conn.close()
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT role, email FROM users WHERE id=%s", (user_id,))
+    user = cursor.fetchone()
+
+    if user:
+        # Toggle between admin and their natural role based on email
+        if user["role"] == "admin":
+            # Demote: restore their natural role based on email domain
+            if user["email"].endswith("@students.tum.ac.ke"):
+                new_role = "student"
+            elif user["email"].endswith("@tum.ac.ke"):
+                new_role = "lecturer"
+            else:
+                new_role = "student"  # safe fallback
+        else:
+            new_role = "admin"
+
+        cursor.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
+        conn.commit()
+
+    cursor.close()
+    conn.close()
 
     return redirect(url_for("manage_users"))
-
 
 #-------------------------- MAP VIEW --------------------------#
 
@@ -873,6 +926,7 @@ def search():
 #-------------------------- LOG SEARCH API --------------------------#
 
 @app.route('/api/log-search', methods=['POST'])
+@csrf.exempt
 def log_search():
     data = request.get_json()
 
@@ -1012,6 +1066,7 @@ def api_recents():
 #-------------------------- SAVE RECENT LOCATION API --------------------------#
 
 @app.route('/api/recents', methods=['POST'])
+@csrf.exempt
 @login_required
 def save_recent_location():
     data = request.get_json()
