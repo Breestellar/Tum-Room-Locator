@@ -59,6 +59,7 @@
 
                         <!-- Toggle Role -->
                         <form action="/admin/toggle_role" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> 
                             <input type="hidden" name="user_id" value="{{ u.id }}">
                             <button class="text-blue-600 text-xs">Toggle Role</button>
                         </form>
@@ -66,6 +67,7 @@
                         <!-- Delete -->
                         <form action="/admin/delete_user" method="POST"
                               onsubmit="return confirm('Delete user?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> 
                             <input type="hidden" name="user_id" value="{{ u.id }}">
                             <button class="text-red-600 text-xs">Delete</button>
                         </form>

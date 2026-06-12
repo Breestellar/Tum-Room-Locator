@@ -15,6 +15,7 @@
             <h3 class="font-semibold mb-4">Add Timetable Record</h3>
 
             <form action="/admin/add_timetable" method="POST" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> 
 
                 <div>
                     <label for="programme_ids" class="text-sm text-gray-600">Programmes</label>
@@ -164,6 +165,7 @@
                         <td class="p-2">
                             <form action="/admin/delete_timetable" method="POST"
                                   onsubmit="return confirm('Delete this timetable record?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> 
                                 <input type="hidden" name="id" value="{{ t.id }}">
                                 <button class="text-red-600 hover:underline">
                                     Delete
