@@ -155,6 +155,18 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script src="{{ url_for('static', filename='js/map-state.js') }}"></script>
+
+{% if building_lat and building_lng %}
+<div id="preloadBuilding"
+     data-lat="{{ building_lat }}"
+     data-lng="{{ building_lng }}"
+     data-name="{{ building_name }}"
+     data-type="{{ building_type }}"
+     data-has-rooms="{{ '1' if building_has_rooms else '0' }}"
+     hidden>
+</div>
+{% endif %}
+
 <script src="{{ url_for('static', filename='js/recents.js') }}"></script>
 <script src="{{ url_for('static', filename='js/search.js') }}"></script>
 <script src="{{ url_for('static', filename='js/map-init.js') }}"></script>

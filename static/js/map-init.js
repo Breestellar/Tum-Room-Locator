@@ -162,5 +162,16 @@ function smoothPosition(newLat, newLng) {
   lastPosition = [lat, lng];
   return lastPosition;
 }
-
 loadLocationFromUrl();
+
+// Auto-open building passed from admin "View" link
+const preloadEl = document.getElementById("preloadBuilding");
+if (preloadEl) {
+  const b = {
+    lat: parseFloat(preloadEl.dataset.lat),
+    lng: parseFloat(preloadEl.dataset.lng),
+    name: preloadEl.dataset.name,
+    locationType: preloadEl.dataset.type,
+    hasRooms: preloadEl.dataset.hasRooms === "1",
+  };
+}
