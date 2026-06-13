@@ -189,4 +189,128 @@
 
 </div>
 
+<!-- PROGRAMME AND COHORT MANAGEMENT -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <!-- ADD PROGRAMME -->
+    <div class="bg-white rounded-xl shadow p-5">
+        <h3 class="font-semibold mb-4">Add Programme</h3>
+        <form action="/admin/add_programme" method="POST" class="space-y-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <div>
+                <label class="text-sm text-gray-600">Programme Code</label>
+                <input type="text" name="code" placeholder="e.g. BSIT"
+                       class="w-full border p-3 rounded-lg" required>
+            </div>
+
+            <div>
+                <label class="text-sm text-gray-600">Programme Name</label>
+                <input type="text" name="name" placeholder="e.g. Bachelor of Science in Information Technology"
+                       class="w-full border p-3 rounded-lg" required>
+            </div>
+
+            <div>
+                <label for="departmentSelect" class="text-sm text-gray-600">Department</label>
+                <select id="departmentSelect" name="department_id" class="w-full border p-3 rounded-lg" required>
+                    <option value="">Select department</option>
+                    {% for d in departments %}
+                        <option value="{{ d.id }}">{{ d.name }} ({{ d.school_name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button class="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-green-700">
+                Add Programme
+            </button>
+        </form>
+    </div>
+
+    <!-- ADD COHORT -->
+    <div class="bg-white rounded-xl shadow p-5">
+        <h3 class="font-semibold mb-4">Add Class Group / Cohort</h3>
+        <form action="/admin/add_cohort" method="POST" class="space-y-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <div>
+                <label for="cohortProgrammeSelect" class="text-sm text-gray-600">Programme</label>
+                <select name="programme_id" id="cohortProgrammeSelect"
+                        class="w-full border p-3 rounded-lg" required>
+                    <option value="">Select programme first</option>
+                    {% for p in programmes %}
+                        <option value="{{ p.id }}">{{ p.code }} - {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="text-sm text-gray-600">Cohort Code</label>
+                <input type="text" name="code" placeholder="e.g. BSIT/SEP2022/J/S-FT"
+                       class="w-full border p-3 rounded-lg" required>
+            </div>
+
+            <div>
+                <label for="yearOfStudySelect" class="text-sm text-gray-600">Year of Study</label>
+                <select id="yearOfStudySelect" name="year_of_study" class="w-full border p-3 rounded-lg" required>
+                    <option value="">Select year</option>
+                    <option value="1">Year 1</option>
+                    <option value="2">Year 2</option>
+                    <option value="3">Year 3</option>
+                    <option value="4">Year 4</option>
+                </select>
+            </div>
+
+            <button class="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-green-700">
+                Add Cohort
+            </button>
+        </form>
+    </div>
+
+</div>
+
+</div>
+
+<!-- Dynamic cohort filtering by programme in the Add Timetable form -->
+<script>
+const programmeSelect = document.getElementById('programme_ids');
+const cohortSelect = document.getElementById('cohort_ids');
+
+if (programmeSelect && cohortSelect) {
+    programmeSelect.addEventListener('change', function () {
+        const selectedProgrammeIds = Array.from(this.selectedOptions).map(o => parseInt(o.value));
+
+        cohortSelect.innerHTML = '';
+
+        if (selectedProgrammeIds.length === 0) {
+            return;
+        }
+
+        const promises = selectedProgrammeIds.map(pid =>
+            fetch(`/api/cohorts-by-programme/${pid}`)
+                .then(r => r.json())
+        );
+
+        Promise.all(promises).then(results => {
+            const seen = new Set();
+            results.flat().forEach(c => {
+                if (!seen.has(c.id)) {
+                    seen.add(c.id);
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.code} - Year ${c.year_of_study}`;
+                    cohortSelect.appendChild(opt);
+                }
+            });
+
+            if (cohortSelect.options.length === 0) {
+                const opt = document.createElement('option');
+                opt.disabled = true;
+                opt.textContent = 'No cohorts found for selected programme(s)';
+                cohortSelect.appendChild(opt);
+            }
+        });
+    });
+}
+</script>
+
 {% endblock %}
