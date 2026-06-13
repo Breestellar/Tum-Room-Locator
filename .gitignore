@@ -1,3 +1,30 @@
-
-node_modules/
+# Environment variables - never commit these
 .env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node (for any frontend tooling)
+node_modules/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Database dumps
+*.sql.bak
