@@ -701,7 +701,6 @@ def manage_users():
 #-------------------------- DELETE USER --------------------------#
 
 @app.route("/admin/delete_user", methods=["POST"])
-@login_required
 @admin_required
 def delete_user():
     user_id = request.form.get("user_id")
@@ -709,6 +708,7 @@ def delete_user():
     if user_id:
         if str(user_id) == str(session.get("user_id")):
             flash("You cannot delete yourself", "danger")
+            return redirect(url_for("manage_users"))
         else:
             conn = get_db()
             cursor = conn.cursor()
@@ -725,7 +725,6 @@ def delete_user():
 #-------------------------- TOGGLE ROLE --------------------------#
 
 @app.route("/admin/toggle_role", methods=["POST"])
-@login_required
 @admin_required
 def toggle_role():
     user_id = request.form.get("user_id")
@@ -770,7 +769,32 @@ def toggle_role():
 @app.route('/map')
 def map_view():
     building_id = request.args.get('building_id')
-    return render_template('map.html', building_id=building_id)
+
+    if building_id:
+        # Look up the building coordinates so the map can open it directly
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                "SELECT id, name, latitude, longitude, location_type, has_rooms FROM building WHERE id=%s",
+                (building_id,)
+            )
+            building = cursor.fetchone()
+        finally:
+            cursor.close()
+            conn.close()
+
+        if building:
+            return render_template('map.html',
+                building_id=building_id,
+                building_lat=building['latitude'],
+                building_lng=building['longitude'],
+                building_name=building['name'],
+                building_type=building['location_type'],
+                building_has_rooms=building['has_rooms']
+            )
+
+    return render_template('map.html', building_id=None)
 
 
 #-------------------------- SEARCH API --------------------------#
@@ -969,7 +993,7 @@ def save_recent_location():
 
         cursor.execute("""
             INSERT INTO recent_locations
-            (user_id, building_id, room_id, location_name, latitude, longitude)
+            (user_id, building_id, room_id, location_name, lat, lng)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (
             session['user_id'],
@@ -1135,6 +1159,15 @@ def admin_timetable():
             ORDER BY p.code, c.code
         """)
         cohorts = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT d.id, d.name, s.name AS school_name
+            FROM department d
+            JOIN school s ON d.school_id = s.id
+            ORDER BY s.name, d.name
+        """)
+        departments = cursor.fetchall()
+
     finally:
         cursor.close()
         conn.close()
@@ -1142,7 +1175,10 @@ def admin_timetable():
     return render_template(
         'admin_timetable.html',
         timetable_rows=timetable_rows,
-        rooms=rooms, programmes=programmes, cohorts=cohorts
+        rooms=rooms,
+        programmes=programmes,
+        cohorts=cohorts,
+        departments=departments
     )
 
 #-------------------------- ADD TIMETABLE RECORD --------------------------#
@@ -1242,6 +1278,85 @@ def delete_timetable():
 
     flash("Timetable record deleted.", "success")
     return redirect(url_for('admin_timetable'))
+
+#-------------------------- ADD PROGRAMME --------------------------#
+
+@app.route('/admin/add_programme', methods=['POST'])
+@admin_required
+def add_programme():
+    code = request.form.get('code', '').strip()
+    name = request.form.get('name', '').strip()
+    department_id = request.form.get('department_id')
+
+    if not code or not name or not department_id:
+        flash("Code, name and department are all required.", "danger")
+        return redirect(url_for('admin_timetable'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO programme (code, name, department_id) VALUES (%s, %s, %s)",
+            (code, name, department_id)
+        )
+        conn.commit()
+        flash(f"Programme '{code}' added successfully.", "success")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect(url_for('admin_timetable'))
+
+
+#-------------------------- ADD COHORT --------------------------#
+
+@app.route('/admin/add_cohort', methods=['POST'])
+@admin_required
+def add_cohort():
+    code = request.form.get('code', '').strip()
+    year_of_study = request.form.get('year_of_study', '').strip()
+    programme_id = request.form.get('programme_id')
+
+    if not code or not year_of_study or not programme_id:
+        flash("Code, year of study and programme are all required.", "danger")
+        return redirect(url_for('admin_timetable'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO cohort (code, year_of_study, programme_id) VALUES (%s, %s, %s)",
+            (code, year_of_study, programme_id)
+        )
+        conn.commit()
+        flash(f"Cohort '{code}' added successfully.", "success")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect(url_for('admin_timetable'))
+
+
+#-------------------------- API: COHORTS BY PROGRAMME --------------------------#
+
+@app.route('/api/cohorts-by-programme/<int:programme_id>')
+@admin_required
+def cohorts_by_programme(programme_id):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, code, year_of_study
+            FROM cohort
+            WHERE programme_id = %s
+            ORDER BY code
+        """, (programme_id,))
+        cohorts = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+    return jsonify(cohorts)
 
 #-------------------------- REPORTS PAGE --------------------------#
 
